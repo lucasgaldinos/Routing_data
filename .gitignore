@@ -1,2 +1,9 @@
 .venv/
 archives/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+*.log
+logs/
