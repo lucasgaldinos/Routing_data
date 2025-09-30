@@ -14,7 +14,8 @@ def validate_problem_data(data: Dict[str, Any]) -> List[str]:
     
     # Type-specific validation
     problem_type = data.get('type', '').upper()
-    if problem_type not in ['TSP', 'VRP', 'ATSP', 'HCP', 'SOP', 'TOUR']:
+    # Support standard TSPLIB types plus CVRP
+    if problem_type not in ['TSP', 'VRP', 'CVRP', 'ATSP', 'HCP', 'SOP', 'TOUR']:
         errors.append(f"Unknown problem type: {problem_type}")
     
     return errors
