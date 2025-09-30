@@ -106,3 +106,10 @@ Extending for new VRP datasets
 Where to start reading
 
 - `src/tsplib95/models.py` (weight/graph), `fields.py` (available sections), `transformers.py` (parsing rules), `distances.py` and `matrix.py` (selection logic), and `tests/` (behavioral examples, sample inputs under `tests/data`).
+
+## how to proceed with your tasks
+
+- always develop a plan before acting.
+- Make usage of available tools.
+- ask whenever in doubt using #get_user_input.
+- websearch, deepwiki, deep-code-reasoner-devv, and the other mcps are all tools for you to use and achieve your tasks.

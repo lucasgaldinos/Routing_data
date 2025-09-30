@@ -1,0 +1,12 @@
+batch_size: 100
+database_path: ./datasets/db/routing.duckdb
+file_patterns:
+- '*.tsp'
+- '*.vrp'
+- '*.atsp'
+- '*.hcp'
+- '*.sop'
+- '*.tour'
+input_path: ./datasets_raw/problems
+log_file: ./logs/converter.log
+log_level: INFO
