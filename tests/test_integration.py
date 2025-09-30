@@ -7,10 +7,10 @@ import sys
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-from converter.database.operations import DatabaseManager
-from converter.utils.parallel import ParallelProcessor
-from converter.utils.update import UpdateManager
-from converter.utils.logging import setup_logging
+from src.converter.database.operations import DatabaseManager
+from src.converter.utils.parallel import ParallelProcessor
+from src.converter.utils.update import UpdateManager
+from src.converter.utils.logging import setup_logging
 from tsplib95 import loaders
 
 

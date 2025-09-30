@@ -13,6 +13,10 @@ from ..utils.exceptions import ConverterError
 from ..utils.parallel import ParallelProcessor
 from ..utils.update import UpdateManager
 from ..database.operations import DatabaseManager
+from ..core.scanner import FileScanner
+from ..core.parser import TSPLIBParser
+from ..core.transformer import DataTransformer
+from ..output.json_writer import JSONWriter
 
 
 @click.group()
@@ -61,12 +65,14 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
         logger.info(f"Output directory: {output}")
         logger.info(f"Parallel processing: {parallel} (workers: {workers})")
         
-        # Initialize database
+        # Initialize components
         db_path = Path(output) / 'db' / 'routing.duckdb'
         db_manager = DatabaseManager(str(db_path), logger)
-        
-        # Initialize update manager
         update_manager = UpdateManager(db_manager, logger)
+        scanner = FileScanner(batch_size=batch_size, logger=logger)
+        parser = TSPLIBParser(logger)
+        transformer = DataTransformer(logger)
+        json_writer = JSONWriter(str(Path(output) / 'json'), logger=logger)
         
         # Get file patterns
         if types:
@@ -76,10 +82,7 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
         
         # Scan for files
         logger.info(f"Scanning for files with patterns: {patterns}")
-        input_path = Path(input)
-        file_list = []
-        for pattern in patterns:
-            file_list.extend([str(f) for f in input_path.rglob(pattern)])
+        file_list = scanner.scan_files(input, patterns)
         
         logger.info(f"Found {len(file_list)} files to process")
         
@@ -107,6 +110,39 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
         # Process files
         start_time = time.time()
         
+        def process_single_file(file_path):
+            """Process a single TSPLIB file."""
+            # Parse file
+            problem_data = parser.parse_file(file_path)
+            
+            # Transform data
+            transformed_data = transformer.transform_problem(problem_data)
+            
+            # Insert into database
+            problem_meta = transformed_data['problem_data']
+            problem_id = db_manager.insert_problem(problem_meta)
+            
+            # Insert nodes
+            if transformed_data['nodes']:
+                db_manager.insert_nodes(problem_id, transformed_data['nodes'])
+            
+            # Insert edges (limit to avoid overwhelming database)
+            if transformed_data['edges']:
+                edges_to_insert = transformed_data['edges'][:5000]  # Limit for performance
+                db_manager.insert_edges(problem_id, edges_to_insert)
+            
+            # Write JSON output
+            json_writer.write_problem(transformed_data)
+            
+            # Update file tracking
+            update_manager.update_file_tracking(
+                file_path,
+                problem_id,
+                update_manager._calculate_checksum(file_path)
+            )
+            
+            return problem_id
+        
         if parallel and len(files_to_process) > 1:
             # Parallel processing
             processor = ParallelProcessor(
@@ -115,15 +151,9 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
                 logger=logger
             )
             
-            # Simple processing function for demonstration
-            def process_file(file_path, **kwargs):
-                # This is a placeholder - in full implementation would parse and store
-                logger.debug(f"Processing {file_path}")
-                return {'file': file_path, 'status': 'processed'}
-            
             results = processor.process_files_parallel(
                 files_to_process,
-                process_file
+                process_single_file
             )
             
             logger.info(f"Parallel processing completed:")
@@ -139,8 +169,7 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
             
             for file_path in files_to_process:
                 try:
-                    logger.debug(f"Processing {file_path}")
-                    # Placeholder for actual processing
+                    process_single_file(file_path)
                     successful += 1
                 except Exception as e:
                     logger.error(f"Failed to process {file_path}: {e}")
