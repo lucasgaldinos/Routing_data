@@ -1,0 +1,24 @@
+# TSPLIB95 ETL Converter Configuration
+
+# Input settings
+input_path: "./datasets_raw/problems"
+file_patterns:
+  - "*.tsp"
+  - "*.vrp"
+  - "*.atsp"
+  - "*.hcp"
+  - "*.sop"
+  - "*.tour"
+
+# Output settings
+json_output_path: "./datasets/json"
+database_path: "./datasets/db/routing.duckdb"
+
+# Processing settings
+batch_size: 100
+max_workers: 4
+memory_limit_mb: 2048
+
+# Logging
+log_level: "INFO"
+log_file: "./logs/converter.log"
