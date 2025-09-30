@@ -83,37 +83,56 @@ class DatabaseManager:
     def _insert_problem_data(self, conn, problem_data: Dict[str, Any], metadata: Dict[str, Any]) -> int:
         """Insert problem metadata and return ID."""
         # Handle conflict resolution with UPSERT
-        result = conn.execute("""
-            INSERT INTO problems (
-                name, type, comment, dimension, capacity, 
-                edge_weight_type, edge_weight_format, 
-                node_coord_type, display_data_type, 
-                file_path, file_size
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (name) DO UPDATE SET
-                updated_at = now(),
-                file_path = excluded.file_path,
-                file_size = excluded.file_size,
-                type = excluded.type,
-                dimension = excluded.dimension,
-                capacity = excluded.capacity,
-                edge_weight_type = excluded.edge_weight_type,
-                edge_weight_format = excluded.edge_weight_format
-            RETURNING id;
-        """, [
-            problem_data.get('name'),
-            problem_data.get('type'),
-            problem_data.get('comment'),
-            problem_data.get('dimension'),
-            problem_data.get('capacity'),
-            problem_data.get('edge_weight_type'),
-            problem_data.get('edge_weight_format'),
-            problem_data.get('node_coord_type'),
-            problem_data.get('display_data_type'),
-            metadata.get('file_path'),
-            metadata.get('file_size', 0)
-        ]).fetchone()
+        # Check if problem already exists
+        existing = conn.execute("SELECT id FROM problems WHERE name = ?", [problem_data.get('name')]).fetchone()
+        
+        if existing:
+            # Update existing problem
+            conn.execute("""
+                UPDATE problems SET
+                    updated_at = CURRENT_TIMESTAMP,
+                    file_path = ?, file_size = ?, type = ?, dimension = ?,
+                    capacity = ?, edge_weight_type = ?, edge_weight_format = ?,
+                    node_coord_type = ?, display_data_type = ?, comment = ?
+                WHERE name = ?
+            """, [
+                metadata.get('file_path'), metadata.get('file_size', 0),
+                problem_data.get('type'), problem_data.get('dimension'),
+                problem_data.get('capacity'), problem_data.get('edge_weight_type'),
+                problem_data.get('edge_weight_format'), problem_data.get('node_coord_type'),
+                problem_data.get('display_data_type'), problem_data.get('comment'),
+                problem_data.get('name')
+            ])
+            result = existing
+        else:
+            # Get next available ID
+            max_id_result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM problems").fetchone()
+            new_id = max_id_result[0] if max_id_result else 1
+            
+            # Insert new problem
+            conn.execute("""
+                INSERT INTO problems (
+                    id, name, type, comment, dimension, capacity, 
+                    edge_weight_type, edge_weight_format, 
+                    node_coord_type, display_data_type, 
+                    file_path, file_size
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                new_id,
+                problem_data.get('name'),
+                problem_data.get('type'),
+                problem_data.get('comment'),
+                problem_data.get('dimension'),
+                problem_data.get('capacity'),
+                problem_data.get('edge_weight_type'),
+                problem_data.get('edge_weight_format'),
+                problem_data.get('node_coord_type'),
+                problem_data.get('display_data_type'),
+                metadata.get('file_path'),
+                metadata.get('file_size', 0)
+            ])
+            result = [new_id]
         
         if not result:
             raise DatabaseError("Failed to insert problem - no ID returned")
@@ -127,9 +146,14 @@ class DatabaseManager:
         
         # Prepare bulk insert
         if nodes_data:
+            # Get starting ID for nodes
+            max_id_result = conn.execute("SELECT COALESCE(MAX(id), 0) FROM nodes").fetchone()
+            next_id = (max_id_result[0] if max_id_result else 0) + 1
+            
             values = []
             for node in nodes_data:
                 values.append([
+                    next_id,
                     problem_id,
                     node.get('node_id'),
                     node.get('x'),
@@ -140,11 +164,12 @@ class DatabaseManager:
                     node.get('display_x'),
                     node.get('display_y')
                 ])
+                next_id += 1
             
             conn.executemany("""
-                INSERT INTO nodes (problem_id, node_id, x, y, z, 
+                INSERT INTO nodes (id, problem_id, node_id, x, y, z, 
                                  demand, is_depot, display_x, display_y)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, values)
     
     def _bulk_insert_edges(self, conn, problem_id: int, edges_data: List[Dict[str, Any]]):
@@ -154,19 +179,25 @@ class DatabaseManager:
         
         # Prepare bulk insert
         if edges_data:
+            # Get starting ID for edges
+            max_id_result = conn.execute("SELECT COALESCE(MAX(id), 0) FROM edges").fetchone()
+            next_id = (max_id_result[0] if max_id_result else 0) + 1
+            
             values = []
             for edge in edges_data:
                 values.append([
+                    next_id,
                     problem_id,
                     edge.get('from_node'),
                     edge.get('to_node'),
                     edge.get('weight', 0.0),
                     edge.get('is_fixed', False)
                 ])
+                next_id += 1
             
             conn.executemany("""
-                INSERT INTO edges (problem_id, from_node, to_node, weight, is_fixed)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO edges (id, problem_id, from_node, to_node, weight, is_fixed)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, values)
     
     def get_problem_by_name(self, name: str) -> Optional[Dict[str, Any]]:

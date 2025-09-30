@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List, Tuple
 import logging
 
-from tsplib95 import loaders
-from tsplib95.models import StandardProblem
+from src.tsplib95 import loaders
+from src.tsplib95.models import StandardProblem
 from ..utils.exceptions import ParsingError, ValidationError
 from ..utils.validation import validate_problem_data, validate_file_path
 

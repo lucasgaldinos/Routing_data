@@ -3,9 +3,8 @@ from typing import List
 
 # SQL for creating tables - reference docs/diagrams/database-schema.mmd
 CREATE_PROBLEMS_TABLE = """
-CREATE SEQUENCE IF NOT EXISTS problems_id_seq;
 CREATE TABLE IF NOT EXISTS problems (
-    id INTEGER PRIMARY KEY DEFAULT nextval('problems_id_seq'),
+    id INTEGER PRIMARY KEY,
     name VARCHAR NOT NULL UNIQUE,
     type VARCHAR NOT NULL,  -- TSP|VRP|ATSP|HCP|SOP|TOUR
     comment TEXT,
@@ -23,9 +22,8 @@ CREATE TABLE IF NOT EXISTS problems (
 """
 
 CREATE_NODES_TABLE = """
-CREATE SEQUENCE IF NOT EXISTS nodes_id_seq;
 CREATE TABLE IF NOT EXISTS nodes (
-    id INTEGER PRIMARY KEY DEFAULT nextval('nodes_id_seq'),
+    id INTEGER PRIMARY KEY,
     problem_id INTEGER NOT NULL,
     node_id INTEGER NOT NULL,  -- Original 1-based ID from TSPLIB
     x DOUBLE,
@@ -41,9 +39,8 @@ CREATE TABLE IF NOT EXISTS nodes (
 """
 
 CREATE_EDGES_TABLE = """
-CREATE SEQUENCE IF NOT EXISTS edges_id_seq;
 CREATE TABLE IF NOT EXISTS edges (
-    id INTEGER PRIMARY KEY DEFAULT nextval('edges_id_seq'),
+    id INTEGER PRIMARY KEY,
     problem_id INTEGER NOT NULL,
     from_node INTEGER NOT NULL,  -- 0-based normalized
     to_node INTEGER NOT NULL,    -- 0-based normalized
