@@ -43,7 +43,7 @@ class DatabaseManager:
                 # Create sequences first
                 conn.execute("CREATE SEQUENCE IF NOT EXISTS problems_seq START 1")
                 conn.execute("CREATE SEQUENCE IF NOT EXISTS nodes_seq START 1")
-                conn.execute("CREATE SEQUENCE IF NOT EXISTS edges_seq START 1")
+
                 conn.execute("CREATE SEQUENCE IF NOT EXISTS file_tracking_seq START 1")
                 
                 # Create problems table
@@ -62,6 +62,9 @@ class DatabaseManager:
                     )
                 """)
                 
+                # Migrate schema to add VRP variant fields
+                self._migrate_schema(conn)
+                
                 # Create nodes table
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS nodes (
@@ -79,18 +82,7 @@ class DatabaseManager:
                     )
                 """)
                 
-                # Create edges table
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS edges (
-                        id INTEGER PRIMARY KEY DEFAULT nextval('edges_seq'),
-                        problem_id INTEGER NOT NULL,
-                        from_node INTEGER NOT NULL,
-                        to_node INTEGER NOT NULL,
-                        weight DOUBLE NOT NULL,
-                        is_fixed BOOLEAN DEFAULT FALSE,
-                        FOREIGN KEY (problem_id) REFERENCES problems(id)
-                    )
-                """)
+                # NO EDGES TABLE - edges are computed on-demand
                 
                 # Create file tracking table
                 conn.execute("""
@@ -116,10 +108,7 @@ class DatabaseManager:
                     ON nodes(problem_id, node_id)
                 """)
                 
-                conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_edges_problem 
-                    ON edges(problem_id, from_node, to_node)
-                """)
+
                 
                 conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_file_tracking_path 
@@ -131,6 +120,43 @@ class DatabaseManager:
         except Exception as e:
             self.logger.error(f"Failed to initialize database schema: {e}")
             raise
+            
+    def _migrate_schema(self, conn):
+        """Apply schema migrations for VRP variant support."""
+        try:
+            # Check if VRP fields exist and add them if needed
+            result = conn.execute("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'problems' AND column_name = 'capacity_vol'
+            """).fetchall()
+            
+            if not result:
+                # Add VRP variant fields
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS capacity_vol INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS capacity_weight INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS max_distance DOUBLE")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS service_time DOUBLE")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS vehicles INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS depots INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS periods INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS has_time_windows BOOLEAN")
+                conn.execute("ALTER TABLE problems ADD COLUMN IF NOT EXISTS has_pickup_delivery BOOLEAN")
+                self.logger.debug("Added VRP variant fields to problems table")
+                
+        except Exception as e:
+            # If information_schema doesn't work, try direct column addition (will be ignored if exists)
+            try:
+                conn.execute("ALTER TABLE problems ADD COLUMN capacity_vol INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN capacity_weight INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN max_distance DOUBLE")
+                conn.execute("ALTER TABLE problems ADD COLUMN service_time DOUBLE")
+                conn.execute("ALTER TABLE problems ADD COLUMN vehicles INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN depots INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN periods INTEGER")
+                conn.execute("ALTER TABLE problems ADD COLUMN has_time_windows BOOLEAN")
+                conn.execute("ALTER TABLE problems ADD COLUMN has_pickup_delivery BOOLEAN")
+            except Exception:
+                pass  # Columns already exist
     
     def insert_problem(self, problem_data: Dict[str, Any]) -> int:
         """
@@ -145,8 +171,11 @@ class DatabaseManager:
         with duckdb.connect(str(self.db_path)) as conn:
             result = conn.execute("""
                 INSERT INTO problems (name, type, comment, dimension, capacity, 
-                                     edge_weight_type, edge_weight_format)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                     edge_weight_type, edge_weight_format,
+                                     capacity_vol, capacity_weight, max_distance,
+                                     service_time, vehicles, depots, periods, 
+                                     has_time_windows, has_pickup_delivery)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
             """, [
                 problem_data.get('name'),
@@ -155,7 +184,16 @@ class DatabaseManager:
                 problem_data.get('dimension'),
                 problem_data.get('capacity'),
                 problem_data.get('edge_weight_type'),
-                problem_data.get('edge_weight_format')
+                problem_data.get('edge_weight_format'),
+                problem_data.get('capacity_vol'),
+                problem_data.get('capacity_weight'),
+                problem_data.get('max_distance'),
+                problem_data.get('service_time'),
+                problem_data.get('vehicles'),
+                problem_data.get('depots'),
+                problem_data.get('periods'),
+                problem_data.get('has_time_windows'),
+                problem_data.get('has_pickup_delivery')
             ]).fetchone()
             
             return result[0] if result else None
@@ -194,34 +232,7 @@ class DatabaseManager:
         
         return len(nodes)
     
-    def insert_edges(self, problem_id: int, edges: List[Dict[str, Any]]) -> int:
-        """
-        Insert edge data for a problem.
-        
-        Args:
-            problem_id: Problem ID
-            edges: List of edge dictionaries
-            
-        Returns:
-            Number of edges inserted
-        """
-        if not edges:
-            return 0
-        
-        with duckdb.connect(str(self.db_path)) as conn:
-            for edge in edges:
-                conn.execute("""
-                    INSERT INTO edges (problem_id, from_node, to_node, weight, is_fixed)
-                    VALUES (?, ?, ?, ?, ?)
-                """, [
-                    problem_id,
-                    edge.get('from_node'),
-                    edge.get('to_node'),
-                    edge.get('weight'),
-                    edge.get('is_fixed', False)
-                ])
-        
-        return len(edges)
+
     
     def get_file_info(self, file_path: str) -> Optional[Dict[str, Any]]:
         """
@@ -398,10 +409,7 @@ class DatabaseManager:
                 SELECT * FROM nodes WHERE problem_id = ?
             """, [problem_id]).fetchall()
             
-            # Get edges
-            edges = conn.execute("""
-                SELECT * FROM edges WHERE problem_id = ?
-            """, [problem_id]).fetchall()
+            # NO EDGES - not precomputed
             
             return {
                 'problem': {
@@ -421,14 +429,5 @@ class DatabaseManager:
                         'is_depot': node[7]
                     }
                     for node in nodes
-                ],
-                'edges': [
-                    {
-                        'from_node': edge[2],
-                        'to_node': edge[3],
-                        'weight': edge[4],
-                        'is_fixed': edge[5]
-                    }
-                    for edge in edges
                 ]
             }

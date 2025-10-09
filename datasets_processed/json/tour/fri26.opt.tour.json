@@ -1,0 +1,322 @@
+{
+  "problem": {
+    "name": "fri26.opt.tour",
+    "type": "TOUR",
+    "comment": "optimal tour for fri26 (937)",
+    "dimension": 26,
+    "capacity": null,
+    "edge_weight_type": null,
+    "edge_weight_format": null,
+    "node_coord_type": null,
+    "display_data_type": null,
+    "file_path": "datasets_raw/problems/tour/fri26.opt.tour",
+    "file_size": 177
+  },
+  "nodes": [
+    {
+      "node_id": 0,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 1,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 2,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 3,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 4,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 5,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 6,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 7,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 8,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 9,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 10,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 11,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 12,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 13,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 14,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 15,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 16,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 17,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 18,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 19,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 20,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 21,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 22,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 23,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 24,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 25,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    }
+  ],
+  "edges": [],
+  "tours": [
+    {
+      "tour_id": 0,
+      "nodes": [
+        0,
+        24,
+        23,
+        22,
+        25,
+        21,
+        20,
+        16,
+        17,
+        19,
+        18,
+        15,
+        10,
+        11,
+        12,
+        14,
+        13,
+        9,
+        8,
+        7,
+        6,
+        4,
+        5,
+        3,
+        2,
+        1
+      ]
+    }
+  ],
+  "metadata": {
+    "file_path": "datasets_raw/problems/tour/fri26.opt.tour",
+    "file_size": 177,
+    "file_name": "fri26.opt.tour",
+    "problem_source": "tour",
+    "has_coordinates": false,
+    "has_demands": false,
+    "has_depots": false,
+    "is_symmetric": true,
+    "weight_source": "unknown"
+  }
+}

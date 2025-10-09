@@ -1,0 +1,390 @@
+{
+  "problem": {
+    "name": "ftv35",
+    "type": "ATSP",
+    "comment": "Asymmetric TSP (Fischetti)",
+    "dimension": 36,
+    "capacity": null,
+    "edge_weight_type": "EXPLICIT",
+    "edge_weight_format": "FULL_MATRIX",
+    "node_coord_type": null,
+    "display_data_type": null,
+    "file_path": "datasets_raw/problems/atsp/ftv35.atsp",
+    "file_size": 15925
+  },
+  "nodes": [
+    {
+      "node_id": 0,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 1,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 2,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 3,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 4,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 5,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 6,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 7,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 8,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 9,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 10,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 11,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 12,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 13,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 14,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 15,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 16,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 17,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 18,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 19,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 20,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 21,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 22,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 23,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 24,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 25,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 26,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 27,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 28,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 29,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 30,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 31,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 32,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 33,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 34,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 35,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    }
+  ],
+  "edges": [],
+  "tours": [],
+  "metadata": {
+    "file_path": "datasets_raw/problems/atsp/ftv35.atsp",
+    "file_size": 15925,
+    "file_name": "ftv35.atsp",
+    "problem_source": "atsp",
+    "has_coordinates": false,
+    "has_demands": false,
+    "has_depots": false,
+    "is_symmetric": false,
+    "weight_source": "explicit_matrix"
+  }
+}

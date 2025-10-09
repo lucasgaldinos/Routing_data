@@ -39,10 +39,9 @@ class DataTransformer:
         Returns:
             Transformed data ready for storage
         """
-        # Extract components
+        # Extract components - NO EDGE PROCESSING
         problem_meta = problem_data.get('problem_data', {})
         nodes = problem_data.get('nodes', [])
-        edges = problem_data.get('edges', [])
         tours = problem_data.get('tours', [])
         metadata = problem_data.get('metadata', {})
         
@@ -57,14 +56,10 @@ class DataTransformer:
         # Ensure all nodes have required fields
         normalized_nodes = self._normalize_nodes(nodes)
         
-        # Ensure all edges have required fields
-        normalized_edges = self._normalize_edges(edges)
-        
-        # Build final structure
+        # Build final structure - NO EDGES
         result = {
             'problem_data': self._enrich_problem_data(problem_meta, metadata),
             'nodes': normalized_nodes,
-            'edges': normalized_edges,
             'tours': tours,
             'metadata': metadata
         }
@@ -98,28 +93,7 @@ class DataTransformer:
         
         return normalized
     
-    def _normalize_edges(self, edges: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Normalize edge data with consistent field structure.
-        
-        Args:
-            edges: List of edge dictionaries
-            
-        Returns:
-            List of normalized edge dictionaries
-        """
-        normalized = []
-        
-        for edge in edges:
-            normalized_edge = {
-                'from_node': edge.get('from_node', 0),
-                'to_node': edge.get('to_node', 0),
-                'weight': edge.get('weight', 0.0),
-                'is_fixed': edge.get('is_fixed', False)
-            }
-            normalized.append(normalized_edge)
-        
-        return normalized
+
     
     def _enrich_problem_data(
         self,
@@ -156,11 +130,10 @@ class DataTransformer:
         Returns:
             Data in JSON-friendly format
         """
-        # Create flattened structure for JSON
+        # Create flattened structure for JSON - NO EDGES
         json_data = {
             'problem': data.get('problem_data', {}),
             'nodes': data.get('nodes', []),
-            'edges': data.get('edges', []),
             'tours': data.get('tours', []),
             'metadata': data.get('metadata', {})
         }
@@ -195,21 +168,6 @@ class DataTransformer:
             if node_ids != list(range(len(node_ids))):
                 errors.append("Node IDs are not sequential starting from 0")
         
-        # Validate edge node references
-        edges = data.get('edges', [])
-        nodes = data.get('nodes', [])
-        
-        # Only validate edge references if we have nodes
-        # (some problems like gr17.tsp have edges but no coordinate nodes)
-        if nodes:
-            max_node_id = len(nodes) - 1
-            for idx, edge in enumerate(edges):
-                from_node = edge.get('from_node', -1)
-                to_node = edge.get('to_node', -1)
-                
-                if from_node < 0 or from_node > max_node_id:
-                    errors.append(f"Edge {idx}: from_node {from_node} out of range")
-                if to_node < 0 or to_node > max_node_id:
-                    errors.append(f"Edge {idx}: to_node {to_node} out of range")
+        # NO EDGE VALIDATION - edges are not precomputed
         
         return errors

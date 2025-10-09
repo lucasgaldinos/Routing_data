@@ -1,66 +1,72 @@
-"""Data validation functions for converter operations."""
+"""Data validation functions for converter operations.
 
-from typing import Dict, Any, List
+Re-exports validation functions from src.format for converter use.
+These are primarily for validating extracted/transformed data before database insertion.
+"""
+
+from format.validation import (
+    validate_problem_data,
+    validate_coordinates,
+)
 
 
-def validate_problem_data(data: Dict[str, Any]) -> List[str]:
-    """
-    Validate extracted problem data.
+def validate_problem_type(problem_type: str) -> bool:
+    """Validate problem type is supported.
     
-    Args:
-        data: Problem data dictionary
+    Parameters
+    ----------
+    problem_type : str
+        Problem type to validate (e.g., 'TSP', 'VRP', 'ATSP')
+    
+    Returns
+    -------
+    bool
+        True if problem type is supported, False otherwise
         
-    Returns:
-        List of error messages (empty if valid)
+    Examples
+    --------
+    >>> validate_problem_type('TSP')
+    True
+    >>> validate_problem_type('INVALID')
+    False
     """
-    errors = []
-    
-    # Required fields
-    if not data.get('name'):
-        errors.append("Problem name is required")
-    if not data.get('type'):
-        errors.append("Problem type is required")
-    if not isinstance(data.get('dimension'), int) or data.get('dimension', 0) <= 0:
-        errors.append("Dimension must be positive integer")
-    
-    # Type-specific validation
-    problem_type = data.get('type', '').upper()
-    if problem_type not in ['TSP', 'VRP', 'ATSP', 'HCP', 'SOP', 'TOUR']:
-        errors.append(f"Unknown problem type: {problem_type}")
-    
-    return errors
-
-
-def validate_coordinates(coords: List[tuple]) -> bool:
-    """
-    Validate coordinate data.
-    
-    Args:
-        coords: List of coordinate tuples
-        
-    Returns:
-        True if coordinates are valid
-    """
-    return all(
-        isinstance(coord, (tuple, list)) and len(coord) >= 2
-        for coord in coords
-    )
+    known_types = {'TSP', 'VRP', 'ATSP', 'HCP', 'SOP', 'TOUR', 'CVRP'}
+    return problem_type.upper() in known_types
 
 
 def validate_file_size(file_path: str, max_size_mb: int = 100) -> bool:
-    """
-    Validate file size is within limits.
+    """Validate file size is within acceptable limits.
     
-    Args:
-        file_path: Path to file
-        max_size_mb: Maximum file size in MB
+    Parameters
+    ----------
+    file_path : str
+        Path to file to validate
+    max_size_mb : int, optional
+        Maximum file size in megabytes (default: 100)
+    
+    Returns
+    -------
+    bool
+        True if file size is acceptable, False otherwise
         
-    Returns:
-        True if file size is acceptable
+    Examples
+    --------
+    >>> validate_file_size('small.tsp', max_size_mb=10)  # doctest: +SKIP
+    True
     """
-    import os
-    try:
-        size_mb = os.path.getsize(file_path) / (1024 * 1024)
-        return size_mb <= max_size_mb
-    except OSError:
+    from pathlib import Path
+    
+    path = Path(file_path)
+    if not path.exists():
         return False
+    
+    size_mb = path.stat().st_size / (1024 * 1024)
+    return size_mb <= max_size_mb
+
+
+__all__ = [
+    'validate_problem_data',
+    'validate_problem_type',
+    'validate_coordinates',
+    'validate_file_size',
+]

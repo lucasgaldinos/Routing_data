@@ -1,0 +1,520 @@
+{
+  "problem": {
+    "name": "ry48p.1.sop",
+    "type": "SOP",
+    "comment": "Received by Norbert Ascheuer (based on ry48p.atsp)",
+    "dimension": 49,
+    "capacity": null,
+    "edge_weight_type": "EXPLICIT",
+    "edge_weight_format": "FULL_MATRIX",
+    "node_coord_type": null,
+    "display_data_type": null,
+    "file_path": "datasets_raw/problems/sop/ry48p.1.sop",
+    "file_size": 11016
+  },
+  "nodes": [
+    {
+      "node_id": 0,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 1,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 2,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 3,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 4,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 5,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 6,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 7,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 8,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 9,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 10,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 11,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 12,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 13,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 14,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 15,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 16,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 17,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 18,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 19,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 20,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 21,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 22,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 23,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 24,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 25,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 26,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 27,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 28,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 29,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 30,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 31,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 32,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 33,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 34,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 35,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 36,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 37,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 38,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 39,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 40,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 41,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 42,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 43,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 44,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 45,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 46,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 47,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 48,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    }
+  ],
+  "edges": [],
+  "tours": [],
+  "metadata": {
+    "file_path": "datasets_raw/problems/sop/ry48p.1.sop",
+    "file_size": 11016,
+    "file_name": "ry48p.1.sop",
+    "problem_source": "sop",
+    "has_coordinates": false,
+    "has_demands": false,
+    "has_depots": false,
+    "is_symmetric": true,
+    "weight_source": "explicit_matrix"
+  }
+}

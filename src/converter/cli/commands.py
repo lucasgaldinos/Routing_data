@@ -14,7 +14,7 @@ from ..utils.parallel import ParallelProcessor
 from ..utils.update import UpdateManager
 from ..database.operations import DatabaseManager
 from ..core.scanner import FileScanner
-from ..core.parser import TSPLIBParser
+from format.parser import FormatParser
 from ..core.transformer import DataTransformer
 from ..output.json_writer import JSONWriter
 
@@ -70,7 +70,7 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
         db_manager = DatabaseManager(str(db_path), logger)
         update_manager = UpdateManager(db_manager, logger)
         scanner = FileScanner(batch_size=batch_size, logger=logger)
-        parser = TSPLIBParser(logger)
+        parser = FormatParser(logger)
         transformer = DataTransformer(logger)
         json_writer = JSONWriter(str(Path(output) / 'json'), logger=logger)
         
@@ -122,14 +122,9 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
             problem_meta = transformed_data['problem_data']
             problem_id = db_manager.insert_problem(problem_meta)
             
-            # Insert nodes
+            # Insert nodes - NO EDGE INSERTION
             if transformed_data['nodes']:
                 db_manager.insert_nodes(problem_id, transformed_data['nodes'])
-            
-            # Insert edges (limit to avoid overwhelming database)
-            if transformed_data['edges']:
-                edges_to_insert = transformed_data['edges'][:5000]  # Limit for performance
-                db_manager.insert_edges(problem_id, edges_to_insert)
             
             # Write JSON output
             json_writer.write_problem(transformed_data)
