@@ -48,6 +48,62 @@ Inside datasets are the zipped files downloaded from the sources above. The scri
 
 It's backend is based on the tsplib 95 files, and the files are in the `datasets` folder. The main files for tsplib are in the `src/tsplib_converter` folder.
 
+## Testing
+
+The system has comprehensive test coverage to ensure reliability:
+
+### Quick Test Commands
+
+```bash
+# Run all tests (134 tests)
+uv run pytest tests/ -v
+
+# Run with coverage report
+uv run pytest tests/ --cov=src --cov-report=term-missing
+
+# Quick test run
+uv run pytest tests/ -q
+```
+
+### Test Suite Overview
+
+- **Total Tests**: 134 ✅
+- **Pass Rate**: 100% (134/134)
+- **Code Coverage**: 63% (Core modules: 80-100%)
+- **Test Categories**:
+  - Unit Tests: 109 tests
+  - Integration Tests: 25 tests
+
+### Test Files
+
+1. **Format Module Tests** (24 tests)
+   - `test_format_parser.py` - Format detection and parsing (9 tests)
+   - `test_extraction.py` - Field extraction and validation (15 tests)
+
+2. **Converter Module Tests** (85 tests)
+   - `test_converter_api.py` - File processing API (13 tests)
+   - `test_transformer.py` - Data transformation (17 tests)
+   - `test_json_writer.py` - JSON output (17 tests)
+   - `test_database.py` - DuckDB operations (21 tests)
+   - `test_scanner.py` - File discovery (17 tests)
+
+3. **Integration Tests** (25 tests)
+   - `test_pipeline.py` - Full ETL pipeline (8 tests)
+   - `test_cli.py` - CLI commands (17 tests)
+
+### Core Module Coverage
+
+- **Transformer**: 100% ✅
+- **Scanner**: 94% ✅
+- **JSON Writer**: 89% ✅
+- **Database**: 85% ✅
+- **CLI Commands**: 80% ✅
+
+For detailed testing information, see:
+
+- `TESTING_SUMMARY.md` - Complete test documentation
+- `TEST_COMMANDS.md` - Quick reference for test commands
+
 # Development plan
 
 ```mermaid

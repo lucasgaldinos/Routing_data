@@ -1,0 +1,100 @@
+{
+  "problem": {
+    "name": "eil7",
+    "type": "CVRP",
+    "comment": "(Eilon et al, Min no of trucks: 2, Best value: 114)",
+    "dimension": 7,
+    "capacity": 3,
+    "edge_weight_type": "EXPLICIT",
+    "edge_weight_format": "LOWER_DIAG_ROW",
+    "node_coord_type": null,
+    "display_data_type": "NO_DISPLAY",
+    "file_path": "datasets_raw/problems/vrp/eil7.vrp",
+    "file_size": 422
+  },
+  "nodes": [
+    {
+      "node_id": 0,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": true,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 1,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 2,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 3,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 4,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 5,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    },
+    {
+      "node_id": 6,
+      "x": null,
+      "y": null,
+      "z": null,
+      "demand": 0,
+      "is_depot": false,
+      "display_x": null,
+      "display_y": null
+    }
+  ],
+  "edges": [],
+  "tours": [],
+  "metadata": {
+    "file_path": "datasets_raw/problems/vrp/eil7.vrp",
+    "file_size": 422,
+    "file_name": "eil7.vrp",
+    "problem_source": "vrp",
+    "has_coordinates": false,
+    "has_demands": false,
+    "has_depots": true,
+    "is_symmetric": true,
+    "weight_source": "explicit_matrix"
+  }
+}
