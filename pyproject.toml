@@ -7,7 +7,7 @@ name = "routing-data"
 version = "0.1.0"
 description = "TSPLIB95 ETL Converter - Convert TSPLIB/VRP instances to JSON and DuckDB"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 authors = [
     {name = "TCC Routing Data Project", email = "lucasgaldinos@example.com"}
 ]
