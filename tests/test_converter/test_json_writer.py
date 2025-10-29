@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 from converter.output.json_writer import JSONWriter
-from format.parser import FormatParser
+from tsplib_parser.parser import FormatParser
 from converter.core.transformer import DataTransformer
 
 
@@ -122,7 +122,7 @@ class TestJSONWriterContent:
         """
         WHAT: Test that written JSON has correct structure
         WHY: JSON should have specific keys: problem, nodes, edges, tours, metadata
-        EXPECTED: JSON contains all required keys
+        EXPECTED: JSON contains all required keys (NO 'edges' field - Issue #4)
         DATA: gr17.tsp
         """
         writer = JSONWriter(output_dir=tmpdir)
@@ -131,7 +131,7 @@ class TestJSONWriterContent:
         with open(path) as f:
             json_data = json.load(f)
         
-        required_keys = {'problem', 'nodes', 'edges', 'tours', 'metadata'}
+        required_keys = {'problem', 'nodes', 'tours', 'metadata'}
         assert set(json_data.keys()) == required_keys, \
             f"JSON should have keys: {required_keys}"
     

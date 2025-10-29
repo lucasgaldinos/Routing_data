@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from logging import Logger
 
-from format.parser import FormatParser
+from tsplib_parser.parser import FormatParser
 from .core.transformer import DataTransformer
 from .database.operations import DatabaseManager
 from .output.json_writer import JSONWriter

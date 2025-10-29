@@ -9,7 +9,7 @@
     "edge_weight_format": "FULL_MATRIX",
     "node_coord_type": null,
     "display_data_type": null,
-    "file_path": "datasets_raw/problems/sop/prob.42.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/prob.42.sop",
     "file_size": 7293
   },
   "nodes": [
@@ -437,7 +437,7 @@
   "edges": [],
   "tours": [],
   "metadata": {
-    "file_path": "datasets_raw/problems/sop/prob.42.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/prob.42.sop",
     "file_size": 7293,
     "file_name": "prob.42.sop",
     "problem_source": "sop",

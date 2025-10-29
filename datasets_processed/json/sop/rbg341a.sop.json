@@ -9,7 +9,7 @@
     "edge_weight_format": "FULL_MATRIX",
     "node_coord_type": null,
     "display_data_type": null,
-    "file_path": "datasets_raw/problems/sop/rbg341a.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/rbg341a.sop",
     "file_size": 588776
   },
   "nodes": [
@@ -3447,7 +3447,7 @@
   "edges": [],
   "tours": [],
   "metadata": {
-    "file_path": "datasets_raw/problems/sop/rbg341a.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/rbg341a.sop",
     "file_size": 588776,
     "file_name": "rbg341a.sop",
     "problem_source": "sop",

@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 from converter.database.operations import DatabaseManager
-from format.parser import FormatParser
+from tsplib_parser.parser import FormatParser
 from converter.core.transformer import DataTransformer
 
 

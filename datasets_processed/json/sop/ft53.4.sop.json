@@ -9,7 +9,7 @@
     "edge_weight_format": "FULL_MATRIX",
     "node_coord_type": null,
     "display_data_type": null,
-    "file_path": "datasets_raw/problems/sop/ft53.4.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/ft53.4.sop",
     "file_size": 12115
   },
   "nodes": [
@@ -557,7 +557,7 @@
   "edges": [],
   "tours": [],
   "metadata": {
-    "file_path": "datasets_raw/problems/sop/ft53.4.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/ft53.4.sop",
     "file_size": 12115,
     "file_name": "ft53.4.sop",
     "problem_source": "sop",

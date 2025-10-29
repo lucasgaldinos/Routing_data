@@ -52,7 +52,7 @@ class FileScanner:
             Batches of file information dictionaries
         """
         if patterns is None:
-            patterns = ['*.tsp', '*.vrp', '*.atsp', '*.hcp', '*.sop', '*.tour']
+            patterns = ['*.tsp', '*.vrp', '*.atsp', '*.hcp', '*.sop']
         
         dir_path = Path(directory)
         
@@ -100,11 +100,11 @@ class FileScanner:
             patterns: File patterns to match
             recursive: Whether to scan subdirectories
             
-        Returns:
+            Returns:
             List of file paths as strings
         """
         if patterns is None:
-            patterns = ['*.tsp', '*.vrp', '*.atsp', '*.hcp', '*.sop', '*.tour']
+            patterns = ['*.tsp', '*.vrp', '*.atsp', '*.hcp', '*.sop']
         
         dir_path = Path(directory)
         
@@ -161,8 +161,7 @@ class FileScanner:
             '.vrp': 'VRP',
             '.atsp': 'ATSP',
             '.hcp': 'HCP',
-            '.sop': 'SOP',
-            '.tour': 'TOUR'
+            '.sop': 'SOP'
         }
         
         return type_map.get(extension.lower(), 'UNKNOWN')

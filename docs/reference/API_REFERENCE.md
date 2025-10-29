@@ -143,6 +143,121 @@ results = converter.process_directory(
 }
 ```
 
+## Low-Level Parsing API
+
+For advanced use cases requiring direct access to the TSPLIB95 parser, use the `FormatParser` class (recommended) or the deprecated legacy functions.
+
+### FormatParser (Recommended)
+
+The `FormatParser` class provides the most control over TSPLIB95 file parsing with proper error handling and logging.
+
+```python
+from tsplib_parser.parser import FormatParser
+from converter.utils.logging import setup_logging
+
+# Initialize parser
+logger = setup_logging("INFO")
+parser = FormatParser(logger=logger)
+
+# Parse TSPLIB95 file
+result = parser.parse_file("datasets_raw/problems/tsp/gr17.tsp")
+
+# Returns detailed parsed data:
+{
+    'problem_data': {
+        'name': 'gr17',
+        'type': 'TSP',
+        'dimension': 17,
+        'edge_weight_type': 'EXPLICIT',
+        'edge_weight_format': 'LOWER_DIAG_ROW',
+        'node_coord_type': None,
+        'capacity': None,
+        'depots': None,
+        'display_data_type': None
+    },
+    'nodes': [],  # Empty for EXPLICIT types
+    'edge_weights': [...],  # Full distance matrix
+    'tours': [],
+    'metadata': {
+        'file_path': '/absolute/path/to/gr17.tsp',
+        'file_size': 1024,
+        'parsing_time': 0.045
+    }
+}
+```
+
+**Key Features:**
+
+- Handles all TSPLIB95 formats (TSP, ATSP, VRP, HCP, SOP, TOUR)
+- Proper index conversion (1-based → 0-based)
+- Matrix expansion for EXPLICIT edge weights
+- Comprehensive error reporting
+- Logging integration
+
+**Use Cases:**
+
+- Custom data pipelines
+- Research tools requiring low-level access
+- Debugging TSPLIB95 format issues
+- Integration with other systems
+
+### Deprecated Legacy Functions
+
+> ⚠️ **DEPRECATED**: The following functions are deprecated and will be removed in a future version. Please migrate to `FormatParser` for new code.
+
+#### `parse_tsplib(text: str, special: dict = None) -> StandardProblem`
+
+**Deprecated since**: Version 1.0  
+**Migration**: Use `FormatParser.parse_file()` instead
+
+```python
+# OLD (deprecated):
+from tsplib_parser import parse_tsplib
+
+with open('problem.tsp', 'r') as f:
+    text = f.read()
+problem = parse_tsplib(text)  # ⚠️ Deprecated
+
+# NEW (recommended):
+from tsplib_parser.parser import FormatParser
+
+parser = FormatParser()
+result = parser.parse_file('problem.tsp')  # ✅ Recommended
+```
+
+#### `load(path: str, special: dict = None) -> StandardProblem`
+
+**Deprecated since**: Version 1.0  
+**Migration**: Use `FormatParser.parse_file()` instead
+
+```python
+# OLD (deprecated):
+from tsplib_parser import load
+
+problem = load('problem.tsp')  # ⚠️ Deprecated
+
+# NEW (recommended):
+from tsplib_parser.parser import FormatParser
+
+parser = FormatParser()
+result = parser.parse_file('problem.tsp')  # ✅ Recommended
+```
+
+**Why Migrate?**
+
+- `FormatParser` provides better error messages
+- Integrated logging support
+- Returns structured dictionaries instead of opaque objects
+- Consistent API with the rest of the system
+- Better testing and maintenance
+
+**Migration Guide:**
+
+1. Replace `from tsplib_parser import load, parse_tsplib` with `from tsplib_parser.parser import FormatParser`
+2. Create a `FormatParser` instance: `parser = FormatParser(logger=your_logger)`
+3. Use `parser.parse_file(path)` instead of `load(path)`
+4. Update code to work with dictionary results instead of `StandardProblem` objects
+
 ## Advanced Components
 
 ### Custom Parser Integration

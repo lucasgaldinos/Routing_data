@@ -1,15 +1,27 @@
-# TSPLIB95 ETL Converter - AI Coding Agent Instructions
+# ETL Converter - AI Coding Agent Instructions
 
 ## Project Overview
 
 3-phase ETL pipeline converting academic routing problems (TSPLIB95 format) to JSON + DuckDB. Processes TSP, VRP, ATSP, HCP, SOP, TOUR instances with parallel processing and change detection.
 
-**Key Insight**: TSPLIB95 uses 1-based indexing; we convert to 0-based during transformation. This is critical for all node/edge operations.
+**CRITICAL: TSPLIB95 is a FILE FORMAT specification, NOT a Python package.** This project uses parsing code in `src/tsplib_parser/` (based on tsplib95 library implementation). Never try to `import tsplib95` - that package doesn't exist in this project.
+
+**Key Insights**:
+
+- TSPLIB95 uses 1-based indexing; we convert to 0-based during transformation. This is critical for all node/edge operations.
+- **EXPLICIT edge weights**: Distance matrices stored in `edge_weight_matrices` table as full 2D JSON arrays
+  - Supports all TSPLIB95 matrix formats: FULL_MATRIX, LOWER_ROW, LOWER_DIAG_ROW, UPPER_ROW, UPPER_DIAG_ROW, and column variants
+  - Parsed via MatrixField → flattened → converted to full dimension×dimension matrix via Matrix classes
+  - Example: br17.atsp (17×17) stored as 1,024 bytes JSON, rbg443.atsp (443×443) as 769,710 bytes
+- **Coordinate-based problems** (EUC_2D, GEO, ATT, etc.): Distances computed on-demand from node coordinates (no matrix storage)
+- **No edges table** - would be O(n²) explosion for large problems
+- **Matrix classes**: Handle various edge weight formats and provide utility functions for matrix operations
+- **NO SCATTERED FILES**: IT'S ABSOLUTELY prohibited to create test files or summaries or anything in the root folder unless asked to do so. Always create the files in the correct folder.
 
 ## Architecture: The 3-Layer Pattern
 
 ```text
-src/format/          → Phase 1: Parse TSPLIB95 (vendored library + extensions)
+src/tsplib_parser/          → Phase 1: Parse TSPLIB95 PROBLEMS
 src/converter/core/  → Phase 2: Transform & normalize data
 src/converter/database/ + output/ → Phase 3: Dual output (DuckDB + JSON)
 ```
@@ -18,9 +30,15 @@ src/converter/database/ + output/ → Phase 3: Dual output (DuckDB + JSON)
 
 ### Why This Matters
 
-- **src/format/** is vendored legacy code (1152+ type warnings acceptable). Use `FormatParser` wrapper, NOT `StandardProblem` directly.
+- **src/tsplib_parser/** contains TSPLIB95 format parsing code based on official tsplib95 library implementation. Use `FormatParser` wrapper, NOT `StandardProblem` directly. **Never try to `import tsplib95` as a package - it doesn't exist here.**
 - **Index conversion** happens in `transformer.py::_convert_to_zero_based()`. Test any node/edge code with both indexing systems.
-- **Edge precomputation** only for EXPLICIT distance types (see `transformer.py::_compute_edges()`). Coordinate-based problems would create O(n²) explosion.
+- **Edge weight storage**:
+  - **EXPLICIT problems** (ATSP, asymmetric TSP): Distance matrices stored in `edge_weight_matrices` table
+    - MatrixField parses EDGE_WEIGHT_SECTION into list of lists (one per file line, as numbers wrap)
+    - Transformer flattens and converts via Matrix classes (FullMatrix, LowerRow, etc.) to full 2D array
+    - Database stores: problem_id, dimension, matrix_format, is_symmetric, matrix_json (full dimension×dimension array)
+  - **Coordinate-based problems** (EUC_2D, GEO, ATT, etc.): Distances computed on-demand from node x,y coordinates
+  - **No edges table** - would be O(n²) explosion for large problems (rbg443 = 196,249 edges)
 
 ## Essential Commands
 
@@ -102,17 +120,18 @@ Don't hardcode paths/settings. Use `config.yaml` or CLI options.
 ## File Organization Rules
 
 ```text
-src/format/           # VENDORED LEGACY - minimize edits, accept type errors
+src/tsplib_parser/   # TSPLIB95 format parsing (based on official library)
   parser.py          # ✓ Public API (use this)
-  models.py          # ✗ Internal legacy (1152 type warnings - don't fix)
+  models.py          # StandardProblem class with Field-based parsing
+  matrix.py          # Matrix classes for EXPLICIT edge weight formats
   
 src/converter/
   api.py             # ✓ Simple public API for library usage
   core/              # ✓ Pipeline orchestration
     scanner.py       # File discovery with glob patterns
-    transformer.py   # THE critical index conversion logic
+    transformer.py   # THE critical index conversion + edge weight matrix conversion
   database/
-    operations.py    # Thread-safe DB ops, each worker gets own connection
+    operations.py    # Thread-safe DB ops, edge_weight_matrices table support
   output/
     json_writer.py   # Flattened JSON structure
   utils/
@@ -123,11 +142,15 @@ src/converter/
 ## Common Pitfalls
 
 1. **Index confusion**: TSPLIB is 1-based, database is 0-based. Always verify which system you're in.
-2. **Edge explosion**: Don't precompute edges for coordinate-based problems (EUC_2D, MAN_2D, GEO, ATT).
-3. **Direct StandardProblem usage**: Use `FormatParser` wrapper instead.
-4. **Generic exceptions**: Use specific types (`TransformError`, not `Exception`).
-5. **Logger creation**: Inject via `__init__`, don't create in methods.
-6. **Test data paths**: Use fixtures like `tsp_files_small`, not hardcoded paths.
+2. **TSPLIB95 is a FORMAT, not a package**: Don't try to `import tsplib95` - use the parsing code in `src/tsplib_parser/`
+3. **Edge weight storage**:
+   - **EXPLICIT problems**: Matrices stored in `edge_weight_matrices` table as full 2D JSON arrays
+   - **Coordinate-based**: Distances computed on-demand from node coordinates (no matrix storage)
+4. **Direct StandardProblem usage**: Use `FormatParser` wrapper instead.
+5. **Generic exceptions**: Use specific types (`TransformError`, not `Exception`).
+6. **Logger creation**: Inject via `__init__`, don't create in methods.
+7. **Test files in root**: Never create temporary test files in root directory - use tests/ folder.
+7. **Test data paths**: Use fixtures like `tsp_files_small`, not hardcoded paths.
 
 ## When Adding Features
 
@@ -160,9 +183,10 @@ Memory limit per worker: 2048 MB (see `parallel.py`). Check with `psutil.Process
 ## Questions to Clarify Before Implementation
 
 - **Index system**: Am I working with 1-based (TSPLIB) or 0-based (database) indices?
-- **Distance type**: Does this problem type need edge precomputation (EXPLICIT) or on-demand calculation (coordinate-based)?
+- **Distance type**: Does this problem type need edge weight matrix storage (EXPLICIT) or on-demand calculation (coordinate-based)?
 - **Thread safety**: Will this run in parallel workers? (If yes, check database connection handling)
 - **Error context**: What specific exception type + context parameters should I use?
+- **TSPLIB confusion**: Remember - TSPLIB95 is a FILE FORMAT. Use vendored code in `src/format/`, never import as package.
 
 ---
 

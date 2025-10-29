@@ -12,11 +12,13 @@ from ..utils.logging import setup_logging
 from ..utils.exceptions import ConverterError
 from ..utils.parallel import ParallelProcessor
 from ..utils.update import UpdateManager
+from ..utils.worker_functions import process_file_for_parallel
 from ..database.operations import DatabaseManager
 from ..core.scanner import FileScanner
-from format.parser import FormatParser
+from tsplib_parser.parser import FormatParser
 from ..core.transformer import DataTransformer
 from ..output.json_writer import JSONWriter
+from ..output.parquet_writer import ParquetWriter
 
 
 @click.group()
@@ -78,13 +80,31 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
         if types:
             patterns = [f"*.{t.lower()}" for t in types]
         else:
-            patterns = ['*.tsp', '*.vrp', '*.atsp', '*.hcp', '*.sop', '*.tour']
+            patterns = ['*.tsp', '*.vrp', '*.atsp', '*.hcp', '*.sop']
         
-        # Scan for files
+        # Scan for files from multiple sources
         logger.info(f"Scanning for files with patterns: {patterns}")
-        file_list = scanner.scan_files(input, patterns)
+        file_list = []
         
-        logger.info(f"Found {len(file_list)} files to process")
+        # Primary input directory
+        files_from_input = scanner.scan_files(input, patterns)
+        file_list.extend(files_from_input)
+        logger.info(f"Found {len(files_from_input)} files in {input}")
+        
+        # Additional CVRPLIB directory (if exists)
+        # Calculate path: datasets_raw/zips/all_problems -> datasets_raw -> datasets_raw/cvrplib
+        input_path = Path(input)
+        raw_base = input_path.parent.parent if 'all_problems' in str(input_path) else input_path.parent
+        cvrplib_path = raw_base / 'cvrplib'
+        if cvrplib_path.exists():
+            files_from_cvrplib = scanner.scan_files(str(cvrplib_path), patterns)
+            file_list.extend(files_from_cvrplib)
+            logger.info(f"Found {len(files_from_cvrplib)} files in {cvrplib_path}")
+        
+        # Filter out MDVRP files (exclude datasets_raw/umalaga/mdvrp/)
+        file_list = [f for f in file_list if '/mdvrp/' not in f and '/mdvrp-converted/' not in f]
+        
+        logger.info(f"Total: {len(file_list)} files to process (MDVRP excluded)")
         
         if not file_list:
             logger.warning("No files found to process")
@@ -110,71 +130,84 @@ def process(ctx, input, output, parallel, workers, batch_size, types, force):
         # Process files
         start_time = time.time()
         
-        def process_single_file(file_path):
-            """Process a single TSPLIB file."""
-            # Parse file
-            problem_data = parser.parse_file(file_path)
-            
-            # Transform data
-            transformed_data = transformer.transform_problem(problem_data)
-            
-            # Insert into database
-            problem_meta = transformed_data['problem_data']
-            problem_id = db_manager.insert_problem(problem_meta)
-            
-            # Insert nodes - NO EDGE INSERTION
-            if transformed_data['nodes']:
-                db_manager.insert_nodes(problem_id, transformed_data['nodes'])
-            
-            # Write JSON output
-            json_writer.write_problem(transformed_data)
-            
-            # Update file tracking
-            update_manager.update_file_tracking(
-                file_path,
-                problem_id,
-                update_manager._calculate_checksum(file_path)
-            )
-            
-            return problem_id
+        # Use ParallelProcessor for both parallel and sequential processing
+        # Sequential mode: workers=1, Parallel mode: workers=N
+        effective_workers = workers if (parallel and len(files_to_process) > 1) else 1
         
-        if parallel and len(files_to_process) > 1:
-            # Parallel processing
-            processor = ParallelProcessor(
-                max_workers=workers,
-                batch_size=batch_size,
-                logger=logger
-            )
+        processor = ParallelProcessor(
+            max_workers=effective_workers,
+            batch_size=batch_size,
+            logger=logger
+        )
+        
+        # Use ProcessPoolExecutor for CPU-bound work (parsing/transformation)
+        # This bypasses Python's GIL for true parallelism
+        use_processes = effective_workers > 1  # Only use processes for parallel mode
+        
+        # Call worker function with output_dir parameter
+        from functools import partial
+        worker_func = partial(process_file_for_parallel, output_dir=str(output))
+        
+        results = processor.process_files_parallel(
+            files_to_process,
+            worker_func,
+            use_processes=use_processes
+        )
+        
+        # Post-process results: Write to database and JSON
+        logger.info("Writing results to database and JSON files...")
+        
+        # Filter successful results for batch processing
+        successful_results = [r for r in results.get('results', []) if r.get('success')]
+        failed_results = [r for r in results.get('results', []) if not r.get('success')]
+        
+        # BATCH DATABASE INSERT (single transaction for all files)
+        # This eliminates connection/transaction overhead: 113 files × 1.5s → ~10s total
+        batch_result = db_manager.insert_problems_batch(successful_results)
+        
+        # PARALLEL JSON WRITES (I/O-bound, can use ThreadPoolExecutor)
+        # Overlaps disk I/O for multiple files simultaneously
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        json_write_successful = 0
+        json_write_failed = 0
+        
+        with ThreadPoolExecutor(max_workers=min(4, effective_workers)) as json_executor:
+            # Submit all JSON write tasks
+            json_futures = {
+                json_executor.submit(json_writer.write_problem, result['transformed_data']): result
+                for result in successful_results
+            }
             
-            results = processor.process_files_parallel(
-                files_to_process,
-                process_single_file
-            )
-            
-            logger.info(f"Parallel processing completed:")
-            logger.info(f"  Successful: {results['successful']}")
-            logger.info(f"  Failed: {results['failed']}")
-            logger.info(f"  Time: {results['processing_time']:.2f}s")
-            logger.info(f"  Throughput: {results['throughput']:.2f} files/sec")
-            
-        else:
-            # Sequential processing
-            successful = 0
-            failed = 0
-            
-            for file_path in files_to_process:
+            # Collect results as they complete
+            for future in as_completed(json_futures):
+                result = json_futures[future]
                 try:
-                    process_single_file(file_path)
-                    successful += 1
+                    future.result()  # Raises exception if write failed
+                    json_write_successful += 1
                 except Exception as e:
-                    logger.error(f"Failed to process {file_path}: {e}")
-                    failed += 1
-            
-            elapsed = time.time() - start_time
-            logger.info(f"Sequential processing completed:")
-            logger.info(f"  Successful: {successful}")
-            logger.info(f"  Failed: {failed}")
-            logger.info(f"  Time: {elapsed:.2f}s")
+                    json_write_failed += 1
+                    logger.error(f"Failed to write JSON for {result['file_path']}: {e}")
+        
+        # Calculate total failures (processing + database + JSON)
+        total_failed = len(failed_results) + batch_result['total_failed'] + json_write_failed
+        
+        logger.info(
+            f"Database writes: {batch_result['total_inserted']} successful, "
+            f"{batch_result['total_failed']} failed"
+        )
+        logger.info(
+            f"JSON writes: {json_write_successful} successful, {json_write_failed} failed"
+        )
+        
+        # Log results with mode indicator
+        mode = "Parallel" if effective_workers > 1 else "Sequential"
+        executor_type = "(ProcessPoolExecutor)" if use_processes else "(ThreadPoolExecutor)"
+        logger.info(f"{mode} processing completed {executor_type}:")
+        logger.info(f"  Successful: {results['successful']}")
+        logger.info(f"  Failed: {results['failed']}")
+        logger.info(f"  Time: {results['processing_time']:.2f}s")
+        if effective_workers > 1:
+            logger.info(f"  Throughput: {results['throughput']:.2f} files/sec")
         
         # Show final statistics
         stats = db_manager.get_problem_stats()
@@ -343,6 +376,100 @@ log_file: "./logs/converter.log"
     
     output_path.write_text(config_template)
     click.echo(f"✓ Configuration file created: {output}")
+
+
+@cli.command(name='export-parquet')
+@click.option('--database', '-d', type=click.Path(exists=True),
+              default='./datasets/db/routing.duckdb',
+              help='Database file to export (default: ./datasets/db/routing.duckdb)')
+@click.option('--output', '-o', type=click.Path(),
+              default='./datasets/parquet',
+              help='Output directory for Parquet files (default: ./datasets/parquet)')
+@click.option('--tables', '-t', multiple=True,
+              help='Specific tables to export (default: all tables). Can be specified multiple times.')
+@click.option('--compression', '-c', 
+              type=click.Choice(['snappy', 'gzip', 'zstd', 'uncompressed']),
+              default='snappy',
+              help='Compression codec (default: snappy)')
+@click.option('--info/--no-info', default=True,
+              help='Show Parquet file information after export')
+@click.pass_context
+def export_parquet(ctx, database, output, tables, compression, info):
+    """
+    Export database tables to Apache Parquet format.
+    
+    Parquet is a columnar storage format optimized for analytics and ML workflows.
+    Supports efficient compression and is compatible with pandas, polars, DuckDB, etc.
+    
+    Examples:
+        # Export all tables
+        converter export-parquet -d datasets/db/routing.duckdb
+        
+        # Export specific tables
+        converter export-parquet -t problems -t nodes -o ./exports/
+        
+        # Use different compression
+        converter export-parquet -c zstd -o ./parquet_compressed/
+        
+        # No info display
+        converter export-parquet --no-info
+    """
+    logger = ctx.obj['logger']
+    
+    try:
+        logger.info(f"Exporting database to Parquet format")
+        logger.info(f"Database: {database}")
+        logger.info(f"Output directory: {output}")
+        logger.info(f"Compression: {compression}")
+        
+        if not Path(database).exists():
+            click.echo(f"✗ Database not found: {database}", err=True)
+            sys.exit(1)
+        
+        # Create Parquet writer
+        writer = ParquetWriter(
+            output_dir=output,
+            compression=compression,
+            logger=logger
+        )
+        
+        # Export tables
+        table_list = list(tables) if tables else None
+        exported_files = writer.export_from_database(
+            db_path=database,
+            tables=table_list
+        )
+        
+        # Display results
+        click.echo(f"\n✓ Exported {len(exported_files)} table(s) to Parquet:")
+        
+        total_size_mb = 0
+        for table_name, file_path in exported_files.items():
+            file_size_mb = Path(file_path).stat().st_size / (1024 * 1024)
+            total_size_mb += file_size_mb
+            click.echo(f"  {table_name:25} → {Path(file_path).name:30} ({file_size_mb:6.2f} MB)")
+        
+        click.echo(f"\nTotal size: {total_size_mb:.2f} MB")
+        click.echo(f"Output directory: {output}")
+        
+        # Show detailed info if requested
+        if info and exported_files:
+            click.echo("\n=== Parquet File Details ===")
+            for table_name, file_path in exported_files.items():
+                try:
+                    file_info = writer.get_parquet_info(file_path)
+                    click.echo(f"\n{table_name}:")
+                    click.echo(f"  Rows: {file_info['row_count']:,}")
+                    click.echo(f"  Columns: {file_info['column_count']}")
+                    click.echo(f"  Size: {file_info['size_mb']:.2f} MB")
+                    click.echo(f"  Compression: {file_info['compression']}")
+                except Exception as e:
+                    logger.warning(f"Could not get info for {table_name}: {e}")
+    
+    except Exception as e:
+        logger.error(f"Parquet export failed: {e}", exc_info=True)
+        click.echo(f"✗ Export error: {e}", err=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

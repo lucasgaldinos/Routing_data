@@ -9,7 +9,7 @@
     "edge_weight_format": "FULL_MATRIX",
     "node_coord_type": null,
     "display_data_type": null,
-    "file_path": "datasets_raw/problems/sop/ESC63.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/ESC63.sop",
     "file_size": 21378
   },
   "nodes": [
@@ -667,7 +667,7 @@
   "edges": [],
   "tours": [],
   "metadata": {
-    "file_path": "datasets_raw/problems/sop/ESC63.sop",
+    "file_path": "datasets_raw/zips/all_problems/sop/ESC63.sop",
     "file_size": 21378,
     "file_name": "ESC63.sop",
     "problem_source": "sop",

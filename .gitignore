@@ -9,3 +9,5 @@ __pycache__/
 datasets/db/
 datasets/json/
 logs/
+docs/reference/tsplib95_legacy_docs/
+docs/archive/

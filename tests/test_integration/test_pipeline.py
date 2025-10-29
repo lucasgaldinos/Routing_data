@@ -17,7 +17,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 from converter.core.scanner import FileScanner
-from format.parser import FormatParser
+from tsplib_parser.parser import FormatParser
 from converter.core.transformer import DataTransformer
 from converter.output.json_writer import JSONWriter
 from converter.database.operations import DatabaseManager

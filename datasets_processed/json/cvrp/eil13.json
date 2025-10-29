@@ -9,7 +9,7 @@
     "edge_weight_format": "LOWER_DIAG_ROW",
     "node_coord_type": null,
     "display_data_type": "NO_DISPLAY",
-    "file_path": "datasets_raw/problems/vrp/eil13.vrp",
+    "file_path": "datasets_raw/zips/all_problems/vrp/eil13.vrp",
     "file_size": 849
   },
   "nodes": [
@@ -28,7 +28,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1200,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -38,7 +38,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1700,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -48,7 +48,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1500,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -58,7 +58,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1400,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -68,7 +68,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1700,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -78,7 +78,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1400,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -88,7 +88,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1200,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -98,7 +98,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1900,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -108,7 +108,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1800,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -118,7 +118,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1600,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -128,7 +128,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1700,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -138,7 +138,7 @@
       "x": null,
       "y": null,
       "z": null,
-      "demand": 0,
+      "demand": 1100,
       "is_depot": false,
       "display_x": null,
       "display_y": null
@@ -147,12 +147,12 @@
   "edges": [],
   "tours": [],
   "metadata": {
-    "file_path": "datasets_raw/problems/vrp/eil13.vrp",
+    "file_path": "datasets_raw/zips/all_problems/vrp/eil13.vrp",
     "file_size": 849,
     "file_name": "eil13.vrp",
     "problem_source": "vrp",
     "has_coordinates": false,
-    "has_demands": false,
+    "has_demands": true,
     "has_depots": true,
     "is_symmetric": true,
     "weight_source": "explicit_matrix"

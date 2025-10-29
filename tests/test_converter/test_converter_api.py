@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 from converter.api import SimpleConverter
-from format.exceptions import ParseError
+from tsplib_parser.exceptions import ParseError
 
 
 class TestSimpleConverterParsing:

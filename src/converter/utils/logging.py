@@ -20,6 +20,9 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> loggin
     logger = logging.getLogger("converter")
     logger.setLevel(getattr(logging, level.upper()))
     
+    # Disable propagation to prevent child loggers from duplicating messages
+    logger.propagate = False
+    
     # Remove existing handlers to avoid duplicates
     logger.handlers.clear()
     

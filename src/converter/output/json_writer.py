@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import logging
 
+from ..core.transformer import DataTransformer
+
 
 class JSONWriter:
     """
@@ -34,6 +36,7 @@ class JSONWriter:
         self.output_dir = Path(output_dir)
         self.pretty = pretty
         self.logger = logger or logging.getLogger(__name__)
+        self.transformer = DataTransformer(logger=self.logger)
         
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -66,14 +69,8 @@ class JSONWriter:
         else:
             output_path = self.output_dir / f"{problem_name}.json"
         
-        # Prepare JSON data (flattened structure)
-        json_data = {
-            'problem': problem_data,
-            'nodes': data.get('nodes', []),
-            'edges': data.get('edges', []),
-            'tours': data.get('tours', []),
-            'metadata': data.get('metadata', {})
-        }
+        # Use transformer to create consistent JSON structure (no duplication)
+        json_data = self.transformer.to_json_format(data)
         
         # Write JSON file
         try:

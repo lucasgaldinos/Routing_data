@@ -135,6 +135,48 @@ writer.write_problem(problem_data, "tsp/gr17.json")
 }
 ```
 
+#### Parquet Output (`output/parquet_writer.py`) ⭐ NEW
+
+```python
+# Export database tables to columnar Parquet format
+from converter.output.parquet_writer import export_database_to_parquet
+
+files = export_database_to_parquet(
+    db_path="datasets/db/routing.duckdb",
+    output_dir="datasets/parquet",
+    compression="snappy"  # or 'gzip', 'zstd', 'uncompressed'
+)
+```
+
+**Format Benefits**:
+
+- **Columnar Storage**: Optimized for analytics (group by, aggregations)
+- **Compression**: 23-45% smaller than JSON (snappy: 6.27 MB vs JSON: 8.14 MB)
+- **Interoperability**: Works with pandas, polars, DuckDB, Spark, Arrow
+- **Fast I/O**: Read only columns needed (predicate pushdown)
+
+**Compression Options**:
+
+| Codec | Compression Ratio | Speed | Use Case |
+|-------|------------------|-------|----------|
+| `snappy` (default) | 0.77x | ⚡⚡⚡ Fast | General purpose, interactive analysis |
+| `gzip` | 0.68x | ⚡⚡ Moderate | Network transfer, cloud storage |
+| `zstd` | 0.55x | ⚡ Slower | Long-term archival, maximum space savings |
+| `uncompressed` | 1.13x | ⚡⚡⚡⚡ Fastest | Maximum read speed |
+
+**Usage**:
+
+```python
+# CLI
+uv run converter export-parquet -d datasets/db/routing.duckdb -c zstd
+
+# Python API
+writer = ParquetWriter(output_dir="datasets/parquet", compression="zstd")
+files = writer.export_from_database("datasets/db/routing.duckdb")
+```
+
+See [Parquet Export Guide](../guides/PARQUET_EXPORT.md) for detailed usage.
+
 ### Layer 4: Infrastructure (`src/converter/utils/`)
 
 #### Parallel Processing (`parallel.py`)
