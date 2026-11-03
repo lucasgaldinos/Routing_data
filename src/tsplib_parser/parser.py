@@ -541,8 +541,17 @@ class FormatParser:
     }
 
   def _check_symmetry(self, problem: StandardProblem, matrix_obj: Matrix | None = None) -> bool | None:
-    """Delegate symmetry check to :func:`tsplib_parser.validation.check_symmetry`."""
-    if matrix_obj is None and getattr(problem, "edge_weights", None):
+    """Derive symmetry from the actual weights, not from format names (``M7``).
+
+    ``FULL_MATRIX`` (and every other EXPLICIT matrix format) is decided by
+    comparing ``value_at(i, j)`` against ``value_at(j, i)`` inside
+    :func:`tsplib_parser.validation.check_symmetry`; a format label never
+    forces ``True``. The explicit matrix is built even when the model exposes
+    ``edge_weights`` only as a flat list, so an asymmetric ``FULL_MATRIX`` TSP
+    is never recorded as symmetric.
+    """
+    edge_weight_format: Any = getattr(problem, "edge_weight_format", None)
+    if matrix_obj is None and (getattr(problem, "edge_weights", None) or edge_weight_format == "FULL_MATRIX"):
       matrix_obj = problem.create_explicit_matrix()
     return check_symmetry(
       problem_type=getattr(problem, "problem_type", None),

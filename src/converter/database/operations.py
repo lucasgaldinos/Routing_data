@@ -49,6 +49,51 @@ _TYPE_SELECT_FRAGMENT = """
 
 _QUERY_WRAPPER = "SELECT * FROM ({type_union}) q WHERE 1=1"
 
+# Identifier-only templates: the sole dynamic piece is a table name taken from
+# the fixed ``_TYPE_TABLES`` allowlist (never external input).
+_DELETE_TYPE_ROW_TEMPLATE = "DELETE FROM {table} WHERE problem_id = ?"
+_LIST_METADATA_TEMPLATE = """SELECT p.id, p.name, p.type, p.has_solution, t.*
+                FROM problems p JOIN {table} t ON t.problem_id = p.id
+                WHERE p.type = ? ORDER BY t.dimension ASC, p.name ASC"""
+_LOAD_METADATA_TEMPLATE = """SELECT p.id, p.name, p.type, p.has_solution,
+                ft.file_path AS source_file, ft.checksum AS file_checksum, t.*
+                FROM problems p LEFT JOIN {table} t ON t.problem_id = p.id
+                LEFT JOIN file_tracking ft ON ft.problem_id = p.id
+                WHERE p.id = ?"""
+
+# Integrity-check templates (M11). Each placeholder is a UNION over the fixed
+# ``_TYPE_TABLES`` allowlist, never user input.
+_HUB_WITHOUT_CHILD_TEMPLATE = """SELECT p.id, p.name, p.type FROM problems p
+                LEFT JOIN ({type_union}) t ON t.problem_id = p.id
+                WHERE t.problem_id IS NULL"""
+_MATRIX_MISSING_TEMPLATE = """SELECT t.problem_id, t.edge_weight_type, t.dimension
+                FROM ({type_dimension_union}) t
+                LEFT JOIN edge_weight_matrices e ON e.problem_id = t.problem_id
+                WHERE t.edge_weight_type = 'EXPLICIT' AND e.problem_id IS NULL"""
+_NON_SQUARE_MATRIX_QUERY = """SELECT e.problem_id, len(e.matrix), len(e.matrix[1])
+                FROM edge_weight_matrices e WHERE len(e.matrix) <> len(e.matrix[1])"""
+_MATRIX_DIMENSION_TEMPLATE = """SELECT t.problem_id, t.dimension,
+                len(e.matrix) FROM ({type_dimension_union}) t
+                JOIN edge_weight_matrices e ON e.problem_id = t.problem_id
+                WHERE t.edge_weight_type = 'EXPLICIT' AND t.problem_id IN
+                (SELECT problem_id FROM tsp_problems UNION ALL
+                 SELECT problem_id FROM atsp_problems)
+                AND len(e.matrix) <> t.dimension"""
+_COORDINATE_DIMENSION_TEMPLATE = """SELECT c.problem_id, c.dimension,
+                len(c.coords), len(c.coords[1])
+                FROM ({coord_union}) c WHERE c.coords IS NOT NULL
+                AND (len(c.coords) <> c.dimension
+                     OR len(c.coords[1]) NOT IN (2, 3))"""
+_SOLUTION_ORPHAN_QUERY = """SELECT s.id, s.source_file, s.problem_id
+                FROM solutions s LEFT JOIN problems p ON p.id = s.problem_id
+                WHERE s.problem_id IS NOT NULL AND p.id IS NULL"""
+
+_PROBLEM_ID_UNION_FRAGMENT = "SELECT problem_id FROM {table}"
+_COORD_UNION_FRAGMENT = "SELECT problem_id, dimension, coords FROM {table}"
+_TYPE_DIMENSION_FRAGMENT = "SELECT problem_id, dimension, {weight_expr} AS edge_weight_type FROM {table}"
+_ORPHAN_CHILD_FRAGMENT = """SELECT '{table}' AS table_name, c.problem_id FROM {table} c
+                LEFT JOIN problems p ON p.id = c.problem_id WHERE p.id IS NULL"""
+
 
 class DatabaseManager:
   """
@@ -518,12 +563,18 @@ class DatabaseManager:
     )
 
   def insert_problem(self, problem_data: dict[str, Any]) -> int:
-    """Insert one problem into the v2 schema: hub row + type-table row.
+    """Insert or update one problem in the v2 schema: hub row + type-table row.
+
+    Idempotent upsert (``B1``): when ``(name, type)`` already exists, the hub
+    row is kept (same ``problems.id``, so dependent ``solutions`` rows keep
+    their link), its ``updated_at`` is refreshed, and the type-table plus
+    ``edge_weight_matrices`` rows are replaced in place. A fresh problem is
+    inserted as before.
 
     The hub, type-table and satellite rows (``edge_weight_matrices`` /
     ``file_tracking``) are written in a single explicit transaction so a
     mid-insert failure rolls them all back. ``problem_data`` is the merged
-    payload produced by the transformer: hub fields (name, type), shared
+    payload produced by the normalizer: hub fields (name, type), shared
     columns (dimension, comment, capacity, edge_weight_type,
     edge_weight_format, tsplib_name), the per-type array payload (coords,
     display_coords, demands, depots, adjacency, fixed_edges) and the
@@ -532,32 +583,59 @@ class DatabaseManager:
     with its matrix row present (Task 2.1).
 
     Returns:
-        The generated hub ``problems.id``.
+        The hub ``problems.id`` (existing one on update).
     """
     hub_type: str = self._validate_hub_type(problem_type=problem_data.get("type"))
-    storage_type: str = self._resolve_storage_type(problem_type=hub_type)
-    inserter = getattr(self, self._TYPE_INSERTERS[storage_type])
     with duckdb.connect(database=str(self.db_path)) as conn:
       conn.execute(query="BEGIN TRANSACTION")
       try:
-        problem_id: int = self._insert_hub(conn, data=problem_data, hub_type=hub_type)
-        inserter(conn, problem_id, problem_data)
-        self._insert_batch_satellites(conn, problem_id, payload=problem_data)
+        problem_id: int = self._upsert_problem_row(conn, payload=problem_data, hub_type=hub_type)
         conn.execute(query="COMMIT")
       except Exception:
         conn.execute(query="ROLLBACK")
         raise
     return problem_id
 
+  def _upsert_problem_row(self, conn: Any, payload: dict[str, Any], hub_type: str) -> int:
+    """Write hub + type-table + satellite rows for one problem (upsert).
+
+    Must run inside the caller's transaction. On an existing ``(name, type)``
+    the owned rows are deleted before re-inserting, so a re-run replaces stale
+    data instead of failing on the UNIQUE constraint (``B1``).
+    """
+    storage_type: str = self._resolve_storage_type(problem_type=hub_type)
+    inserter = getattr(self, self._TYPE_INSERTERS[storage_type])
+    # Table identifier comes from the fixed ``_TYPE_TABLES`` allowlist.
+    table: str = self._TYPE_TABLES[storage_type]
+    existing: tuple[Any, ...] | None = conn.execute(
+      "SELECT id FROM problems WHERE name = ? AND type = ?",
+      [payload.get("name"), hub_type],
+    ).fetchone()
+
+    if existing is None:
+      problem_id: int = self._insert_hub(conn, data=payload, hub_type=hub_type)
+    else:
+      problem_id = int(existing[0])
+      conn.execute("UPDATE problems SET updated_at = now() WHERE id = ?", [problem_id])
+      conn.execute(_DELETE_TYPE_ROW_TEMPLATE.replace("{table}", table), [problem_id])
+      conn.execute("DELETE FROM edge_weight_matrices WHERE problem_id = ?", [problem_id])
+
+    inserter(conn, problem_id, payload)
+    self._insert_batch_satellites(conn, problem_id, payload=payload)
+    return problem_id
+
   def insert_problems_batch(self, problem_results: list[dict[str, Any]]) -> dict[str, Any]:
     """
-    Insert multiple problems into the v2 schema in one explicit transaction.
+    Insert or update multiple problems, isolating failures per problem.
 
     Each worker result is dispatched per type: hub row + type-table row via
     the ``_TYPE_INSERTERS`` helpers, plus its satellite rows
-    (``edge_weight_matrices`` / ``file_tracking``). The
-    whole batch shares one transaction, so a mid-batch failure rolls back
-    every row written so far (no orphan hub rows).
+    (``edge_weight_matrices`` / ``file_tracking``). Every problem runs in its
+    own transaction (DuckDB has no savepoints): a failure rolls back only that
+    problem, which lands in ``failed``, while the valid problems before and
+    after it still commit (``B3``). Writes are idempotent upserts (``B1``), so
+    re-running a batch updates existing rows instead of aborting on the
+    UNIQUE constraint.
 
     Args:
         problem_results: list of result dictionaries from worker processes
@@ -589,6 +667,11 @@ class DatabaseManager:
     for result in problem_results:
       try:
         if not result.get("problem_data"):
+          # B3: a payload without problem_data used to vanish uncounted. Record
+          # it as a failure so the CLI reports a real total.
+          skipped_name: str = str(result.get("file_path") or "unknown")
+          failed.append({"name": skipped_name, "error": "missing problem_data"})
+          self.logger.error("Worker result without problem_data: %s", skipped_name)
           continue
         collected.append(self._build_batch_problem_payload(result))
       except Exception as e:
@@ -613,24 +696,26 @@ class DatabaseManager:
         "total_failed": len(failed),
       }
 
-    # Step 2: Insert everything in one transaction; any failure rolls back
-    # the whole batch (rollback-all-on-failure, Task 1.4 DoD).
+    # Step 2: One transaction per problem. DuckDB has no savepoints, so a
+    # per-problem transaction is the isolation boundary: a bad row rolls back
+    # alone and the batch keeps the valid rows (``B3``).
     insert_start = time.time()
     with duckdb.connect(database=str(self.db_path)) as conn:
-      conn.execute(query="BEGIN TRANSACTION")
-      try:
-        for payload in collected:
+      for payload in collected:
+        payload_name: str = str(payload.get("name"))
+        conn.execute(query="BEGIN TRANSACTION")
+        try:
           hub_type: str = self._validate_hub_type(problem_type=payload.get("type"))
-          problem_id: int = self._insert_hub(conn, data=payload, hub_type=hub_type)
-          storage_type: str = self._resolve_storage_type(problem_type=hub_type)
-          getattr(self, self._TYPE_INSERTERS[storage_type])(conn, problem_id, payload)
-          self._insert_batch_satellites(conn, problem_id, payload)
-        conn.execute(query="COMMIT")
-        successful = [payload["name"] for payload in collected]
-      except Exception as e:
-        conn.execute(query="ROLLBACK")
-        self.logger.error("Batch insert failed: %s", e)
-        failed = [{"name": payload["name"], "error": str(e)} for payload in collected]
+          self._upsert_problem_row(conn, payload=payload, hub_type=hub_type)
+          conn.execute(query="COMMIT")
+          successful.append(payload_name)
+        except Exception as e:
+          try:
+            conn.execute(query="ROLLBACK")
+          except Exception as rollback_error:  # pragma: no cover - connection gone
+            self.logger.error("Rollback failed for %s: %s", payload_name, rollback_error)
+          failed.append({"name": payload_name, "error": str(e)})
+          self.logger.error("Failed to insert %s: %s", payload_name, e)
 
     insert_time = time.time() - insert_start
     batch_total = time.time() - batch_start
@@ -1025,3 +1110,214 @@ class DatabaseManager:
     exported: dict[str, Any] = self.load(name=name, type=ptype)
     exported["id"] = problem_id
     return exported
+
+  # ------------------------------------------------------------------
+  # Consumer read surface (DP10-14).
+  #
+  # Downstream loaders must not re-implement the schema-v2 joins. These
+  # methods return named, documented shapes so a consumer never has to know
+  # which physical type table owns a problem.
+  # ------------------------------------------------------------------
+
+  @staticmethod
+  def _row_to_dict(cursor: Any, row: tuple[Any, ...]) -> dict[str, Any]:
+    """Zip a DuckDB row with its cursor description into a named-key dict."""
+    columns: list[str] = [column[0] for column in cursor.description]
+    return dict(zip(columns, row, strict=True))
+
+  def list_problem_metadata(self, problem_type: str) -> list[dict[str, Any]]:
+    """List every stored problem of ``problem_type`` with its type-table row.
+
+    Args:
+        problem_type: Any storable type; VRP-family aliases normalize to the
+            owning physical table (e.g. ``MDVRP`` -> ``cvrp_problems``).
+
+    Returns:
+        Rows ordered by ``dimension`` then ``name``. Each dict carries the hub
+        fields (``id``, ``name``, ``type``, ``has_solution``) plus every
+        column of the owning type table (``problem_id``, ``dimension``,
+        ``comment``, ``edge_weight_type``, ``edge_weight_format``,
+        ``tsplib_name``, ``coords``, ``capacity``, ``demands``, ``depots``,
+        ``adjacency``, ``fixed_edges`` — whichever exist for that type). It also
+        adds ``edge_type`` as the loader-facing alias of ``edge_weight_type``
+        (``"EXPLICIT"`` for ATSP, which stores no weight-type column).
+    """
+    hub_type: str = self._validate_hub_type(problem_type=problem_type)
+    table: str = self._TYPE_TABLES[self._resolve_storage_type(problem_type=hub_type)]
+    # ``table`` comes from the fixed ``_TYPE_TABLES`` allowlist.
+    query = _LIST_METADATA_TEMPLATE.replace("{table}", table)
+    with duckdb.connect(database=str(self.db_path)) as conn:
+      cursor = conn.execute(query, parameters=[hub_type])
+      rows: list[tuple[Any, ...]] = cursor.fetchall()
+      result: list[dict[str, Any]] = [self._row_to_dict(cursor, row) for row in rows]
+    for item in result:
+      item["edge_type"] = item.get("edge_weight_type") or ("EXPLICIT" if hub_type == "ATSP" else None)
+    return result
+
+  def load_problem_metadata(self, problem_id: int) -> dict[str, Any]:
+    """Load one problem's full metadata (hub + type-table + file tracking).
+
+    Args:
+        problem_id: Hub ``problems.id``.
+
+    Returns:
+        Dict with the loader-facing keys ``problem_id``, ``name``, ``type``,
+        ``has_solution``, ``source_file``, ``file_checksum``, ``dimension``,
+        ``comment``, ``edge_type``, ``edge_weight_format``, ``capacity``,
+        ``tsplib_name``, ``raw_coords``, ``raw_display_coords``,
+        ``raw_demands`` and ``raw_depots`` (absent type-table columns are
+        ``None``).
+
+    Raises:
+        NotFoundError: No hub row matches ``problem_id``.
+    """
+    with duckdb.connect(database=str(self.db_path)) as conn:
+      hub: tuple[Any, ...] | None = conn.execute(
+        query="SELECT name, type FROM problems WHERE id = ?", parameters=[problem_id]
+      ).fetchone()
+      if hub is None:
+        raise NotFoundError(message=f"Problem {problem_id} not found", name=str(problem_id))
+      hub_type: str = self._validate_hub_type(problem_type=hub[1])
+      table: str = self._TYPE_TABLES[self._resolve_storage_type(problem_type=hub_type)]
+      cursor = conn.execute(
+        _LOAD_METADATA_TEMPLATE.replace("{table}", table),
+        parameters=[problem_id],
+      )
+      row: tuple[Any, ...] | None = cursor.fetchone()
+      if row is None:
+        raise NotFoundError(message=f"Problem {problem_id} not found", name=str(problem_id))
+      data: dict[str, Any] = self._row_to_dict(cursor, row)
+
+    data["problem_id"] = int(data["id"])
+    data.setdefault("dimension", None)
+    data.setdefault("comment", None)
+    data.setdefault("tsplib_name", None)
+    data.setdefault("capacity", None)
+    data["edge_type"] = data.get("edge_weight_type") or ("EXPLICIT" if hub_type == "ATSP" else None)
+    data["raw_coords"] = data.get("coords")
+    data["raw_display_coords"] = data.get("display_coords")
+    data["raw_demands"] = data.get("demands")
+    data["raw_depots"] = data.get("depots")
+    return data
+
+  def load_matrix_metadata(self, problem_id: int) -> dict[str, Any] | None:
+    """Return the ``edge_weight_matrices`` row metadata for a problem, if any.
+
+    Returns:
+        Dict with ``matrix_format``, ``is_symmetric`` and ``matrix`` keys, or
+        ``None`` when the problem stores no explicit matrix.
+    """
+    with duckdb.connect(database=str(self.db_path)) as conn:
+      row: tuple[Any, ...] | None = conn.execute(
+        query="SELECT matrix_format, is_symmetric, matrix FROM edge_weight_matrices WHERE problem_id = ?",
+        parameters=[problem_id],
+      ).fetchone()
+    if row is None:
+      return None
+    return {"matrix_format": row[0], "is_symmetric": bool(row[1]), "matrix": row[2]}
+
+  def load_solution(self, problem_id: int) -> dict[str, Any] | None:
+    """Return the stored solution row for a problem, or ``None`` when absent.
+
+    Returns:
+        Dict with ``kind``, ``quality``, ``source_file``, ``checksum``,
+        ``cost``, ``routes`` and ``created_at``.
+    """
+    with duckdb.connect(database=str(self.db_path)) as conn:
+      row: tuple[Any, ...] | None = conn.execute(
+        query=(
+          "SELECT kind, quality, source_file, checksum, cost, routes, created_at "
+          "FROM solutions WHERE problem_id = ? ORDER BY id LIMIT 1"
+        ),
+        parameters=[problem_id],
+      ).fetchone()
+    if row is None:
+      return None
+    return {
+      "kind": row[0],
+      "quality": row[1],
+      "source_file": row[2],
+      "checksum": row[3],
+      "cost": row[4],
+      "routes": row[5],
+      "created_at": row[6],
+    }
+
+  # ------------------------------------------------------------------
+  # Integrity validation (M11).
+  # ------------------------------------------------------------------
+
+  def _type_dimension_union(self) -> str:
+    """``problem_id, dimension, edge_weight_type`` over every type table."""
+    fragments: list[str] = []
+    for table in self._TYPE_TABLES.values():
+      if table in ("tsp_problems", "cvrp_problems"):
+        weight_expr = "edge_weight_type"
+      elif table in ("atsp_problems", "sop_problems"):
+        # These tables store matrices/fixed edges directly; their weights are
+        # always EXPLICIT by construction.
+        weight_expr = "'EXPLICIT'"
+      else:
+        weight_expr = "CAST(NULL AS VARCHAR)"
+      fragments.append(_TYPE_DIMENSION_FRAGMENT.replace("{weight_expr}", weight_expr).replace("{table}", table))
+    return " UNION ALL ".join(fragments)
+
+  def integrity_failures(self) -> list[dict[str, Any]]:
+    """Run real SQL integrity checks and return one dict per violation.
+
+    Each check returns the offending rows; an empty union means the database
+    passes. The CLI ``validate`` command prints these and exits non-zero when
+    any is reported (``M11``).
+
+    Checks:
+        1. Every hub row owns exactly one type-table row.
+        2. Every type-table row references an existing hub row.
+        3. Every EXPLICIT problem (TSP/CVRP weight type, ATSP/SOP by
+           construction) has a row in ``edge_weight_matrices``.
+        4. Every stored matrix is square, and TSP/ATSP matrices match the
+           problem dimension (CVRP may store a customer-only matrix, ``M8``).
+        5. Coordinate arrays are ``dimension x 2`` (or ``dimension x 3``).
+        6. Every non-orphan ``solutions.problem_id`` references a hub row.
+
+    Returns:
+        list of ``{"check": str, "detail": tuple[Any, ...]}`` entries.
+    """
+    type_union: str = " UNION ALL ".join(
+      _PROBLEM_ID_UNION_FRAGMENT.replace("{table}", table) for table in self._TYPE_TABLES.values()
+    )
+    type_dimension_union: str = self._type_dimension_union()
+    coord_union: str = " UNION ALL ".join(
+      _COORD_UNION_FRAGMENT.replace("{table}", table) for table in ("tsp_problems", "cvrp_problems")
+    )
+    orphan_children: str = " UNION ALL ".join(
+      _ORPHAN_CHILD_FRAGMENT.replace("{table}", table) for table in self._TYPE_TABLES.values()
+    )
+
+    checks: list[tuple[str, str]] = [
+      (
+        "hub row without a type-table row",
+        _HUB_WITHOUT_CHILD_TEMPLATE.replace("{type_union}", type_union),
+      ),
+      ("type-table row without a hub row", orphan_children),
+      (
+        "EXPLICIT problem without an edge-weight matrix",
+        _MATRIX_MISSING_TEMPLATE.replace("{type_dimension_union}", type_dimension_union),
+      ),
+      ("non-square edge-weight matrix", _NON_SQUARE_MATRIX_QUERY),
+      (
+        "edge-weight matrix dimension mismatch",
+        _MATRIX_DIMENSION_TEMPLATE.replace("{type_dimension_union}", type_dimension_union),
+      ),
+      (
+        "coordinate array dimension mismatch",
+        _COORDINATE_DIMENSION_TEMPLATE.replace("{coord_union}", coord_union),
+      ),
+      ("solution referencing a missing problem", _SOLUTION_ORPHAN_QUERY),
+    ]
+
+    failures: list[dict[str, Any]] = []
+    with duckdb.connect(database=str(self.db_path), read_only=True) as conn:
+      for check_name, sql in checks:
+        for row in conn.execute(query=sql).fetchall():
+          failures.append({"check": check_name, "detail": tuple(row)})
+    return failures

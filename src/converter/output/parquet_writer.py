@@ -10,6 +10,30 @@ from typing import Any
 
 import duckdb
 
+#: Tables this writer may export. The export builds a ``COPY <table> TO ...``
+#: statement, so the identifier is constrained to this allowlist instead of
+#: interpolating whatever an external caller passes (``m17``).
+ALLOWED_TABLES: frozenset[str] = frozenset(
+  {
+    "problems",
+    "tsp_problems",
+    "atsp_problems",
+    "cvrp_problems",
+    "hcp_problems",
+    "sop_problems",
+    "edge_weight_matrices",
+    "file_tracking",
+    "solutions",
+  }
+)
+
+
+def _assert_allowed_table(table: str) -> str:
+  """Return ``table`` when it is in :data:`ALLOWED_TABLES`, else raise."""
+  if table not in ALLOWED_TABLES:
+    raise ValueError(f"Table not allowed for parquet export: {table!r}")
+  return table
+
 
 class ParquetWriter:
   """
@@ -62,33 +86,35 @@ class ParquetWriter:
 
     Raises:
         FileNotFoundError: If database file doesn't exist
-        ValueError: If specified table doesn't exist
+        ValueError: If a requested table does not exist or is not an allowlisted
+            schema table (:data:`ALLOWED_TABLES`)
 
     Example:
         >>> writer = ParquetWriter()
-        >>> files = writer.export_from_database("db/routing.duckdb", tables=["problems", "nodes"])
+        >>> files = writer.export_from_database("db/routing.duckdb", tables=["problems", "solutions"])
         >>> print(files)
         {'problems': 'datasets/parquet/problems.parquet', ...}
     """
-    db_path = Path(db_path)
-    if not db_path.exists():
-      raise FileNotFoundError(f"Database not found: {db_path}")
+    db_file = Path(db_path)
+    if not db_file.exists():
+      raise FileNotFoundError(f"Database not found: {db_file}")
 
-    conn = duckdb.connect(str(db_path), read_only=True)
+    conn = duckdb.connect(str(db_file), read_only=True)
 
     try:
       # Get available tables
-      available_tables = [row[0] for row in conn.execute("SHOW TABLES").fetchall()]
+      available_tables: list[str] = [row[0] for row in conn.execute("SHOW TABLES").fetchall()]
 
-      # Determine tables to export
+      # Determine tables to export. Only whitelisted schema tables are exposed;
+      # anything else in the database (scratch tables, views) is ignored.
       if tables is None:
-        export_tables = available_tables
+        export_tables: list[str] = [table for table in available_tables if table in ALLOWED_TABLES]
       else:
-        # Validate requested tables
+        # Validate requested tables: they must exist and be allowlisted.
         invalid = set(tables) - set(available_tables)
         if invalid:
           raise ValueError(f"Tables not found: {invalid}")
-        export_tables = tables
+        export_tables = [_assert_allowed_table(table) for table in tables]
 
       self.logger.info(f"Exporting {len(export_tables)} tables to Parquet")
 
@@ -101,15 +127,17 @@ class ParquetWriter:
       conn.close()
 
   def _export_multi_file(self, conn: duckdb.DuckDBPyConnection, tables: list[str]) -> dict[str, str]:
-    """Export each table to separate Parquet file."""
-    output_files = {}
+    """Export each table to a separate Parquet file (allowlisted identifiers only)."""
+    output_files: dict[str, str] = {}
 
     for table in tables:
-      output_path = self.output_dir / f"{table}.parquet"
+      safe_table: str = _assert_allowed_table(table)
+      output_path = self.output_dir / f"{safe_table}.parquet"
 
-      # DuckDB native Parquet export
+      # DuckDB native Parquet export. ``safe_table`` is an identifier from the
+      # ALLOWED_TABLES allowlist, never caller-controlled text.
       query = f"""
-                COPY {table}
+                COPY {safe_table}
                 TO '{output_path}'
                 (FORMAT PARQUET, COMPRESSION '{self.compression}')
             """
@@ -142,12 +170,13 @@ class ParquetWriter:
     )
 
     # For now, just export to separate files with common prefix
-    output_files = {}
+    output_files: dict[str, str] = {}
     for table in tables:
-      table_output = self.output_dir / f"routing_data_{table}.parquet"
+      safe_table: str = _assert_allowed_table(table)
+      table_output = self.output_dir / f"routing_data_{safe_table}.parquet"
 
       query = f"""
-                COPY {table}
+                COPY {safe_table}
                 TO '{table_output}'
                 (FORMAT PARQUET, COMPRESSION '{self.compression}')
             """
@@ -178,6 +207,8 @@ class ParquetWriter:
     """
     if output_filename is None:
       output_filename = f"{table_name}.parquet"
+    # Basename only: a custom name must not be able to leave the output dir.
+    output_filename = Path(output_filename).name
 
     files = self.export_from_database(db_path, tables=[table_name])
 
@@ -221,7 +252,10 @@ class ParquetWriter:
       schema = conn.execute(describe_sql).fetchall()
 
       # Get row count
-      row_count = conn.execute(count_sql).fetchone()[0]
+      row: tuple[Any, ...] | None = conn.execute(count_sql).fetchone()
+      if row is None:
+        raise ValueError(f"Unable to read row count from {parquet_path}")
+      row_count = row[0]
 
       # Get file size
       size_mb = parquet_path.stat().st_size / (1024 * 1024)

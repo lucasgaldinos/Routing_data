@@ -48,7 +48,7 @@ def process_file_for_parallel(file_path: str, output_dir: str) -> dict[str, Any]
     # Import here to avoid pickling issues with module-level imports
     import logging
 
-    from converter.core.transformer import DataTransformer
+    from converter.core.transformer import NormalizedProblemData, ProblemNormalizer
     from tsplib_parser.parser import FormatParser
 
     # Use process-local logger (not pickled from parent)
@@ -57,14 +57,14 @@ def process_file_for_parallel(file_path: str, output_dir: str) -> dict[str, Any]
 
     # Initialize components
     parser = FormatParser(logger=logger)
-    transformer = DataTransformer(logger=logger)
+    transformer = ProblemNormalizer(logger=logger)
 
     # Step 1: Parse file (CPU-bound)
     logger.info(msg=f"Processing new file: {file_path}")
     parsed_result: ParseResult = parser.parse_file(file_path)
 
     # Step 2: Transform data (CPU-bound)
-    transformed_data: dict[str, Any] = transformer.transform_problem(problem_data=parsed_result)
+    transformed_data: NormalizedProblemData = transformer.transform_problem(problem_data=parsed_result)
 
     # Step 3: Calculate checksum (CPU-bound)
     checksum: str = calculate_checksum(file_path)

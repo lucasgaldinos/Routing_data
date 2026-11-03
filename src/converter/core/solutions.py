@@ -1,6 +1,6 @@
 """Parse solution files (``*.opt.tour``, ``*.sol``) into :class:`ParsedSolution`.
 
-This replaces ``DataTransformer.parse_solution_data`` (dead code, register item
+This replaces ``ProblemNormalizer.parse_solution_data`` (dead code, register item
 **CV11**) with a parser that:
 
 - reads **in memory** -- no temporary file is written to inject a missing

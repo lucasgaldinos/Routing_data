@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 import click
 
+from .. import __version__
 from ..core.scanner import FileScanner
 from ..database.operations import DatabaseManager
 from ..output.json_writer import JSONWriter
@@ -18,7 +19,7 @@ from ..utils.worker_functions import process_file_for_parallel
 
 
 @click.group()
-@click.version_option(version="0.1.0")
+@click.version_option(version=__version__)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool) -> None:
@@ -232,10 +233,10 @@ def validate(ctx: click.Context, database: str) -> None:
   """
   Validate database integrity and data quality.
 
-  Performs comprehensive validation:
-  - Database schema and data integrity
-  - Data quality checks
-  - Constraint verification
+  Runs real SQL checks over the schema-v2 tables (``M11``): hub/text-table
+  joins in both directions, EXPLICIT matrix presence and dimensions,
+  coordinate-array dimensions, and ``solutions`` foreign keys. Exits with
+  status 1 as soon as any check reports a violation.
   """
   logger = ctx.obj["logger"]
 
@@ -248,13 +249,24 @@ def validate(ctx: click.Context, database: str) -> None:
 
     db_manager = DatabaseManager(database, logger)
     stats = db_manager.get_problem_stats()
+    failures = db_manager.integrity_failures()
+
+    click.echo(f"\nDatabase: {database}")
+    click.echo(f"  Total problems: {stats['total_problems']}")
+
+    if failures:
+      click.echo(f"✗ Validation failed: {len(failures)} violation(s)", err=True)
+      for failure in failures:
+        click.echo(f"  - {failure['check']}: {failure['detail']}", err=True)
+      sys.exit(1)
 
     click.echo("\n✓ Database validation successful")
-    click.echo(f"  Total problems: {stats['total_problems']}")
 
     for type_stat in stats["by_type"]:
       click.echo(f"  {type_stat['type']}: {type_stat['count']} problems")
 
+  except SystemExit:
+    raise
   except Exception as e:
     logger.error(f"Validation failed: {e}", exc_info=True)
     click.echo(f"✗ Validation error: {e}", err=True)
@@ -553,7 +565,8 @@ def inspect(ctx: click.Context, database: str, table: str | None, detail: bool) 
         click.echo("-" * 80)
 
         count_sql = "".join(['SELECT COUNT(*) FROM "', name, '"'])
-        row_count = conn.execute(count_sql).fetchone()[0]
+        count_row: tuple[Any, ...] | None = conn.execute(count_sql).fetchone()
+        row_count: int = count_row[0] if count_row is not None else 0
         click.echo(f"   Rows: {row_count:,}")
 
         schema = conn.execute(f'PRAGMA table_info("{name}")').fetchall()

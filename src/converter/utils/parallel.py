@@ -48,15 +48,15 @@ class ParallelProcessor:
     self.logger: logging.Logger = logger or logging.getLogger(__name__)
 
     # Progress tracking
-    self._progress_queue = Queue()
-    self._total_items = 0
-    self._completed_items = 0
-    self._failed_items = 0
+    self._progress_queue: Queue[Any] = Queue()
+    self._total_items: int = 0
+    self._completed_items: int = 0
+    self._failed_items: int = 0
     self._lock: LockType = threading.Lock()
-    self._start_time = None
+    self._start_time: float | None = None
 
   def process_files_parallel(
-    self, file_list: list[str], process_func: Callable, use_processes: bool = False, **kwargs: Any
+    self, file_list: list[str], process_func: Callable[..., Any], use_processes: bool = False, **kwargs: Any
   ) -> dict[str, Any]:
     """
     Process files in parallel with comprehensive error handling.
@@ -175,7 +175,7 @@ class ParallelProcessor:
 
     return result
 
-  def _process_with_tracking(self, process_func: Callable, file_path: str, **kwargs: Any) -> Any:
+  def _process_with_tracking(self, process_func: Callable[..., Any], file_path: str, **kwargs: Any) -> Any:
     """
     Wrapper to process file with progress tracking.
 
@@ -239,7 +239,7 @@ class ParallelProcessor:
       "percent": memory.percent,
     }
 
-  def create_progress_reporter(self) -> Callable:
+  def create_progress_reporter(self) -> Callable[..., None]:
     """
     Create thread-safe progress reporting function.
 

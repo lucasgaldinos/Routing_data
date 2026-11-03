@@ -45,10 +45,18 @@ modifications:
           Resolved Objective 4 Gap 1: expanded DuckDB problems.type CHECK constraint to admit all 53 STORABLE_PROBLEM_TYPES,
           preserving hub problem identity while routing physical storage via _TYPE_TO_STORAGE; un-xfailed test_extended_type_keeps_its_identity.
           Refreshed test count: 406 collected (402 passed, 4 xfailed).
+  - date_modified: 2026-11-03
+    modifications:
+      - description: >
+          Added v0.2.0 regression suites: test_unit_transformer_matrix_contract
+          (M3/M4), test_unit_database_upsert (B1/B3/DP10-14),
+          test_unit_output_guards (M2/m17), test_unit_cost_exports (DP10-13) and
+          test_integration_validate_integrity (M11). Updated the suite count to
+          426 collected (425 passed, 1 xfailed) and levels to 317 unit /
+          108 integration / 1 e2e.
 related_files:
   - [conftest.py](./conftest.py)
-  - [testing_instructions.instructions.md](../.github/instructions/testing_instructions.instructions.md)
-  - [test.instructions.md](../.github/instructions/test.instructions.md)
+  - [testing.instructions.md](../.agents/rules/testing.instructions.md)
 tags:
   - docs/guide/tests/layout
   - docs/guide/tests/naming
@@ -91,10 +99,14 @@ tests/
 └── converter/
     ├── test_unit_scanner.py
     ├── test_unit_transformer.py
+    ├── test_unit_transformer_matrix_contract.py
     ├── test_unit_solutions.py
     ├── test_unit_cost.py
+    ├── test_unit_cost_exports.py
     ├── test_unit_database.py
+    ├── test_unit_database_upsert.py
     ├── test_unit_json_writer.py
+    ├── test_unit_output_guards.py
     ├── test_integration_api.py
     ├── test_integration_cli_commands.py
     ├── test_integration_cli_inspect.py
@@ -102,6 +114,7 @@ tests/
     ├── test_integration_schema_contract.py
     ├── test_integration_type_coverage.py
     ├── test_integration_output_contract.py
+    ├── test_integration_validate_integrity.py
     └── test_integration_batch_accounting.py
 ```
 
@@ -109,22 +122,25 @@ tests/
 tests the root `conftest.py` (the marker hook and its mapping), which belongs to
 no source package.
 
-Current state (2026-10-24): Batches 1–4 of the reorganization are done
+Current state (2026-11-03): Batches 1–4 of the reorganization are done
 (structure, fixtures/quality, annotations, marker hook and tags). Batch 5
-(coverage gaps) is pending. Suite: **368 passed, 6 xfailed, 0 failed, 0 skipped**, ~25 s;
-`ruff check tests` clean. Levels: 276 `unit`, 97 `integration`, 1 `e2e`.
+(coverage gaps) is pending. Suite: **425 passed, 1 xfailed, 0 failed, 0 skipped**, ~33 s;
+`ruff check tests` clean. Levels: 317 `unit`, 108 `integration`, 1 `e2e`.
+
+The single `xfailed` test pins a registered defect (`TODO.md` /
+`src/converter/TODO.md`) with `strict=True`, so the day the defect is fixed the
+suite turns **red** until the test is updated. The batch-isolation regressions
+(B1/B3) are now un-xfailed and pass against per-problem transactions.
 
 The solution-parser tests (`test_unit_solutions.py`, 13 tests) that arrived with
 step A2 are the first ones written against the new `converter/core/solutions.py`
 layer; the old `DataTransformer` solution methods they will replace are still
 covered by `test_unit_transformer.py` until the deletion in A4.
 
-The 6 `xfailed` tests are deliberate: they pin a defect that is registered in
+The 1 `xfailed` test is deliberate: it pins a defect that is registered in
 `TODO.md` / `src/converter/TODO.md` and marked `strict=True`, so the day the
-defect is fixed the suite turns **red** until the test is updated. They are the
-red-to-green targets for the converter rework (register items B1, B3, M12, CV9).
-The rationale for every rule below is in
-`tmp/analysis-test-suite-organization.md`.
+defect is fixed the suite turns **red** until the test is updated. The rationale
+for every rule below is in `tmp/analysis-test-suite-organization.md`.
 
 ## Filename rule
 

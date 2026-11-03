@@ -34,7 +34,7 @@ class UpdateManager:
     """
     self.db_manager = database_manager
     self.logger: logging.Logger = logger or logging.getLogger(__name__)
-    self._change_cache = {}
+    self._change_cache: dict[str, Any] = {}
 
   def detect_changes(self, file_path: str) -> dict[str, Any]:
     """
@@ -188,7 +188,14 @@ class UpdateManager:
             'errors': List[Dict]
         }
     """
-    stats = {"new_files": 0, "modified_files": 0, "unchanged_files": 0, "processed": [], "skipped": [], "errors": []}
+    stats: dict[str, Any] = {
+      "new_files": 0,
+      "modified_files": 0,
+      "unchanged_files": 0,
+      "processed": [],
+      "skipped": [],
+      "errors": [],
+    }
 
     for file_path in file_list:
       try:

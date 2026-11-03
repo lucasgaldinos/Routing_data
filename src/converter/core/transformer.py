@@ -4,20 +4,58 @@ from __future__ import annotations
 
 import itertools
 import logging
+import math
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, cast
 
 from tsplib_parser import matrix
 
+from ..utils.exceptions import TransformError
+
 if TYPE_CHECKING:
+  from collections.abc import Mapping
+
   from tsplib_parser.parser import FormatParser
   from tsplib_parser.types import ParseResult, ProblemData, TourDict
 
 
-class DataTransformer:
+class NormalizedProblemData(TypedDict):
+  """Storage payload produced by :meth:`ProblemNormalizer.transform_problem`.
+
+  Named contract for the schema-v2 array-column payload (``AGENTS.md`` §5.5):
+  ``problem_data`` carries the hub + shared columns, the remaining keys are
+  the per-type array columns and the graph/solution data the writers and
+  ``DatabaseManager`` consume. ``edge_weight_matrix`` is present only for
+  EXPLICIT problems whose weights converted successfully.
   """
-  Data transformation for TSPLIB converter.
+
+  problem_data: dict[str, Any]
+  tours: list[TourDict]
+  metadata: dict[str, Any]
+  edges: list[list[int]]
+  fixed_edges: list[list[int]]
+  coords: list[list[float]] | None
+  display_coords: list[list[float]] | None
+  demands: list[int]
+  depots: list[int]
+  edge_weight_matrix: NotRequired[list[list[int]]]
+
+
+def _nint(value: float) -> int:
+  """TSPLIB95 ``nint``: round half up via ``int(floor(x + 0.5))``.
+
+  The schema stores ``edge_weight_matrices.matrix`` as ``INTEGER[][]``; the
+  parser accepts fractional explicit weights, so conversion must apply the
+  spec's rounding instead of Python's round-half-to-even ``int()`` truncation
+  (``M3`` / ``DP10-12``).
+  """
+  return math.floor(value + 0.5)
+
+
+class ProblemNormalizer:
+  """
+  Normalization of parsed TSPLIB data for database/JSON storage.
 
   Features:
   - Normalize data for database/JSON storage
@@ -35,7 +73,9 @@ class DataTransformer:
     """
     self.logger: logging.Logger = logger or logging.getLogger(__name__)
 
-  def transform_problem(self, problem_data: ParseResult, file_info: dict[str, Any] | None = None) -> dict[str, Any]:
+  def transform_problem(
+    self, problem_data: ParseResult, file_info: Mapping[str, Any] | None = None
+  ) -> NormalizedProblemData:
     """
     Transform parsed problem data for storage.
 
@@ -45,6 +85,12 @@ class DataTransformer:
 
     Returns:
         Transformed data ready for storage
+
+    Raises:
+        TransformError: An ``EDGE_WEIGHT_TYPE: EXPLICIT`` problem declared edge
+            weights that could not be converted into a matrix. The problem is
+            discarded as a whole: storing it without its only distance data
+            would leave an unreadable row (``M4``).
     """
     problem_meta: dict[str, Any] = dict(problem_data["problem_data"])
     tours: list[TourDict] = problem_data["tours"]
@@ -67,8 +113,9 @@ class DataTransformer:
     depots: list[int] = problem_data["depots"]
 
     # Process edge weights if present (EXPLICIT problems)
-    edge_weight_matrix: list[list[float]] | None = None
+    edge_weight_matrix: list[list[int]] | None = None
     if problem_meta.get("edge_weights"):
+      edge_weight_type: Any = problem_meta.get("edge_weight_type")
       try:
         edge_weight_matrix = self._convert_edge_weights_to_matrix(
           edge_weights=problem_meta["edge_weights"],
@@ -77,6 +124,14 @@ class DataTransformer:
         )
         self.logger.info(f"Converted edge weights to {len(edge_weight_matrix)}x{len(edge_weight_matrix[0])} matrix")
       except Exception as e:
+        if str(edge_weight_type).upper() == "EXPLICIT":
+          # M4: an EXPLICIT problem's matrix is its only distance data. Fail the
+          # whole problem so the worker discards it instead of storing a row no
+          # loader can read (the old warn-and-None path did exactly that).
+          raise TransformError(
+            message=f"EXPLICIT problem matrix conversion failed: {e}",
+            field_name="edge_weights",
+          ) from e
         self.logger.warning(msg=f"Failed to convert edge weights: {e}")
         import traceback
 
@@ -88,7 +143,7 @@ class DataTransformer:
     edges: list[list[int]] = problem_data["edges"]
     fixed_edges: list[list[int]] = problem_data["fixed_edges"]
 
-    result: dict[str, Any] = {
+    result: NormalizedProblemData = {
       "problem_data": self._enrich_problem_data(problem_meta, metadata),
       "tours": tours,
       "metadata": metadata,
@@ -110,8 +165,12 @@ class DataTransformer:
     edge_weights: matrix.Matrix | list[list[float]],
     edge_weight_format: str,
     dimension: int,
-  ) -> list[list[float]]:
-    """Convert edge weights to full 2D matrix.
+  ) -> list[list[int]]:
+    """Convert edge weights to a full 2D integer matrix.
+
+    Explicit weights are stored as ``INTEGER[][]`` (schema v2), so fractional
+    source values are rounded with TSPLIB95's ``nint`` (``M3`` / ``DP10-12``)
+    rather than truncated.
 
     Args:
         edge_weights: Matrix object or list[list[float]] from parser
@@ -119,12 +178,15 @@ class DataTransformer:
         dimension: Problem dimension (number of nodes)
 
     Returns:
-        Full 2D matrix as list of lists (dimension x dimension)
+        Full 2D matrix as list of lists of ints (dimension x dimension)
+
+    Raises:
+        ValueError: The format is not a known TRIANGULAR/edge-weight format.
     """
     if isinstance(edge_weights, matrix.Matrix):
       matrix_size: int = edge_weights.size
-      matrix_2d: list[list[int | float]] = [
-        [edge_weights.value_at(i, j) for j in range(matrix_size)] for i in range(matrix_size)
+      matrix_2d: list[list[int]] = [
+        [_nint(float(edge_weights.value_at(i, j))) for j in range(matrix_size)] for i in range(matrix_size)
       ]
       self.logger.debug(
         f"Extracted matrix from Matrix object: format={edge_weight_format}, "
@@ -143,7 +205,7 @@ class DataTransformer:
 
     MatrixClass = matrix.TYPES[edge_weight_format]
     m = MatrixClass(weights, dimension, min_index=0)
-    matrix_2d = [[m.value_at(i, j) for j in range(dimension)] for i in range(dimension)]
+    matrix_2d = [[_nint(float(m.value_at(i, j))) for j in range(dimension)] for i in range(dimension)]
 
     self.logger.debug(f"Successfully converted to {dimension}x{dimension} matrix")
     return matrix_2d
@@ -168,7 +230,7 @@ class DataTransformer:
 
     return enriched
 
-  def to_json_format(self, data: dict[str, Any]) -> dict[str, Any]:
+  def to_json_format(self, data: Mapping[str, Any]) -> dict[str, Any]:
     """
     Convert data to flattened JSON format.
 
@@ -441,3 +503,9 @@ class DataTransformer:
         return None
 
     return None
+
+
+#: Backwards-compatible alias (``TODO.md`` D6 / Task 4.1). New code imports
+#: :class:`ProblemNormalizer`; the alias keeps older callers working for one
+#: release cycle.
+DataTransformer = ProblemNormalizer

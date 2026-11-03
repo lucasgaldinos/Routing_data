@@ -138,7 +138,7 @@ class TransformError(ConverterError):
 
   Notes
   -----
-  Used in DataTransformer for normalization, validation, and conversion logic.
+  Used in ProblemNormalizer for normalization, validation, and conversion logic.
   """
 
   def __init__(self, message: str, field_name: str | None = None, *args: object) -> None:

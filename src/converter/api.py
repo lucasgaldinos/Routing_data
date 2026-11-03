@@ -7,13 +7,14 @@ and converting them to various output formats.
 
 import json
 import os
+from collections.abc import Mapping
 from logging import Logger
 from pathlib import Path
 from typing import Any
 
 from tsplib_parser.parser import FormatParser
 
-from .core.transformer import DataTransformer
+from .core.transformer import NormalizedProblemData, ProblemNormalizer
 from .database.operations import DatabaseManager
 from .output.json_writer import JSONWriter
 from .utils.logging import setup_logging
@@ -33,9 +34,9 @@ class SimpleConverter:
     """Initialize the converter with default components."""
     self.logger: Logger = logger or setup_logging()
     self.parser = FormatParser(logger=self.logger)
-    self.transformer = DataTransformer(logger=self.logger)
+    self.transformer = ProblemNormalizer(logger=self.logger)
 
-  def parse_file(self, file_path: str) -> dict[str, Any]:
+  def parse_file(self, file_path: str) -> NormalizedProblemData:
     """
     Parse a single TSPLIB file.
 
@@ -53,7 +54,7 @@ class SimpleConverter:
 
     return transformed_data
 
-  def to_json(self, data: dict[str, Any], output_path: str) -> None:
+  def to_json(self, data: Mapping[str, Any], output_path: str) -> None:
     """
     Save problem data as JSON file.
 
@@ -73,7 +74,7 @@ class SimpleConverter:
     with open(output_path, "w") as f:
       json.dump(json_data, f, indent=2)
 
-  def to_database(self, data: dict[str, Any], db_path: str) -> int:
+  def to_database(self, data: Mapping[str, Any], db_path: str) -> int:
     """
     Store problem data in DuckDB database (schema v2).
 
@@ -142,7 +143,7 @@ class SimpleConverter:
     for file_path in files:
       try:
         # Parse and transform
-        data: dict[str, Any] = self.parse_file(str(file_path))
+        data: NormalizedProblemData = self.parse_file(str(file_path))
 
         # Write outputs
         if json_writer:
@@ -166,7 +167,7 @@ class SimpleConverter:
     }
 
 
-def merge_v2_payload(data: dict[str, Any]) -> dict[str, Any]:
+def merge_v2_payload(data: Mapping[str, Any]) -> dict[str, Any]:
   """Build the schema-v2 insert payload from a transformed result.
 
   ``DatabaseManager.insert_problem`` expects the merged payload (Task 1.2):
@@ -183,7 +184,8 @@ def merge_v2_payload(data: dict[str, Any]) -> dict[str, Any]:
   persists them when the payload provides them.
   """
   problem_data: dict[str, Any] = dict(data.get("problem_data", {}))
-  file_path: str | None = data.get("file_path") or problem_data.get("file_path")
+  file_path_raw: Any = data.get("file_path") or problem_data.get("file_path")
+  file_path: str | None = str(file_path_raw) if file_path_raw else None
   merged: dict[str, Any] = {
     **problem_data,
     "coords": data.get("coords"),
@@ -214,7 +216,7 @@ def merge_v2_payload(data: dict[str, Any]) -> dict[str, Any]:
 _default_converter = SimpleConverter()
 
 
-def parse_file(file_path: str) -> dict[str, Any]:
+def parse_file(file_path: str) -> NormalizedProblemData:
   """
   Parse a single TSPLIB file.
 
@@ -232,7 +234,7 @@ def parse_file(file_path: str) -> dict[str, Any]:
   return _default_converter.parse_file(file_path)
 
 
-def to_json(data: dict[str, Any], output_path: str) -> None:
+def to_json(data: Mapping[str, Any], output_path: str) -> None:
   """
   Save problem data as JSON file.
 
@@ -247,7 +249,7 @@ def to_json(data: dict[str, Any], output_path: str) -> None:
   return _default_converter.to_json(data, output_path)
 
 
-def to_database(data: dict[str, Any], db_path: str) -> int:
+def to_database(data: Mapping[str, Any], db_path: str) -> int:
   """
   Store problem data in DuckDB database.
 

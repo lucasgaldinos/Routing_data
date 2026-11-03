@@ -246,14 +246,14 @@ class TestCordeauIntegration:
     transformed: dict[str, Any] = transformer.transform_problem(problem_data=parsed_data)
 
     # Write JSON. JSONWriter.organize_by_type defaults to True, so the file
-    # lands under a type subdirectory: <out>/mdvrp/p01.json.
+    # lands under a type subdirectory: <out>/mdvrp/p01.mdvrp.json.
     json_output_dir: Path = temp_converted_dir / "json"
     json_output_dir.mkdir()
     json_writer = JSONWriter(output_dir=json_output_dir, logger=logging.getLogger(__name__))
     json_writer.write_problem(data=transformed)
 
     # Verify JSON file created under the type subdirectory
-    json_file: Path = json_output_dir / "mdvrp" / f"{filename}.json"
+    json_file: Path = json_output_dir / problem.type_name.lower() / f"{filename}.{problem.type_name.lower()}.json"
     assert json_file.exists()
 
     # Verify JSON content against the v2 flattened shape: metadata sits

@@ -11,32 +11,30 @@ _Active implementation plan - routing_data parser hardening (tsplib_parser) + ET
 - [x] Review complete: 239-file corpus parses cleanly; `test_unit_parser_validation.py` = 100% green.
 - [x] Batch 1 - `models.py` micro-cleanups (1.1 - 1.6 completed)
 - [x] Batch 2 - `StandardProblem.parse` structural simplification & decomposition into `tokenization.py`, `fields.py`, `transformers.py`
-- [ ] Batch 3 - ETL failure visibility (converter / CLI)
-- [ ] Batch 4 - naming collision (`DataTransformer` -> `ProblemNormalizer`)
+- [x] Batch 3 - ETL failure visibility (converter / CLI) — B1/B3 fixed 2026-11-03
+- [x] Batch 4 - naming collision (`DataTransformer` -> `ProblemNormalizer`) — done 2026-11-03 (alias kept)
 - [x] Batch 5 - docs: `src/tsplib_parser/README.md` with mermaid diagrams, updated TODOs, test layout conventions
 - [x] Batch 6 - parser payload typing (`ParseResult` / `ProblemData` / `Metadata`) + Cordeau payload bridge (2026-10-23)
 
-## Verification baseline (re-measured 2026-10-23)
+## Verification baseline (re-measured 2026-11-03 for `v0.2.0`)
 
 The three gates below are the only accepted evidence that a change is done. Numbers are the
 state at the time of writing; a change may not raise any of them.
 
 ```bash
 .venv/bin/python -m ruff check src tests     # All checks passed
-.venv/bin/python -m mypy src                 # 18 errors in 5 files (checked 35 source files)
-.venv/bin/python -m pytest -q                 # 306 passed
+.venv/bin/python -m mypy src                 # Success: no issues found in 38 source files
+.venv/bin/python -m pytest -q                 # 425 passed, 1 xfailed
 ```
 
 - **ruff:** clean across `src` and `tests`.
-- **mypy strict:** 18 errors / 5 files — `utils/parallel.py` (6), `utils/update.py` (7),
-  `output/parquet_writer.py` (3), `cli/commands.py` (1), `config.py` (1 missing-stub note).
-  `tsplib_parser` is at **0**. Detailed rows in the typing register below.
-- **pytest:** 306 passed (248 `unit`, 57 `integration`, 1 `e2e`); includes the 239-file corpus sweep.
-- **Pylance/pyright strict** is a second, stricter lens: it reports the same `parallel.py` items plus
-  6 `tsplib_parser` items that mypy does not (see **T7**). `mypy` is the configured gate because
-  `pyproject.toml` declares it; pyright is advisory until a config is committed.
-- **mypy is installed** in `.venv` as of 2026-10-23 (2.4.0), so the gate can actually run for the
-  first time. It landed in runtime `dependencies` — see **T6**.
+- **mypy strict:** 0 errors. The former 17-error debt (`utils/parallel.py`, `utils/update.py`,
+  `output/parquet_writer.py`, `cli/commands.py`) was paid down in the `v0.2.0` batch.
+- **pytest:** 425 passed / 1 xfailed (317 `unit`, 108 `integration`, 1 `e2e`); includes the
+  239-file corpus sweep.
+- **Pylance/pyright strict** is a second, stricter lens and remains advisory until a config is
+  committed.
+- **mypy is installed** in `.venv` as of 2026-10-23 (2.4.0); it is a dev-group tool (**T6**).
 
 ## Decisions pinned
 
@@ -75,7 +73,7 @@ state at the time of writing; a change may not raise any of them.
 
 ### Batch 3 - ETL failure visibility
 
-- [ ] **Task 3.1 - Trace `process_files_parallel()` result consumption**
+- [x] **Task 3.1 - Trace `process_files_parallel()` result consumption**
 
   + **What:** Trace where the stats dict (`successful`/`failed`/`errors`) returned by
     `ParallelProcessor.process_files_parallel()` is consumed in the CLI / `core` pipeline.
@@ -85,7 +83,7 @@ state at the time of writing; a change may not raise any of them.
   + **How much:** Low (investigation only).
   + **DoD:** A written trace stating whether/where failures surface. No code change yet.
 
-- [ ] **Task 3.2 - (conditional on 3.1) Surface failures loudly**
+- [x] **Task 3.2 - (conditional on 3.1) Surface failures loudly**
 
   + **What:** Make the CLI print the error summary and exit non-zero when any batch failed.
   + **Why:** Failures must be visible at the process boundary, not buried in a returned dict.
@@ -95,7 +93,7 @@ state at the time of writing; a change may not raise any of them.
 
 ### Batch 4 - naming collision (option A locked, D6)
 
-- [ ] **Task 4.1 - Rename converter class `DataTransformer` -> `ProblemNormalizer` (class only)**
+- [x] **Task 4.1 - Rename converter class `DataTransformer` -> `ProblemNormalizer` (class only)**
 
   + **What:** Rename the class in `src/converter/core/transformer.py`; update all references and
     imports; keep the module filename.
@@ -126,20 +124,20 @@ uv run converter process -i datasets_raw/problems -o <tmp>   # corpus run when a
 
 | ID | Severity | Problem | Type | Where | Cause / Why | Depends on |
 | --- | --- | --- | --- | --- | --- | --- |
-| B1 | Blocker | Rerun on existing DB silently no-ops: duplicate key → batch rollback, stale row kept, exit 0, JSON rewritten anyway → DB/JSON diverge | Data integrity / workflow | `operations.py:292` (`_insert_hub`), UNIQUE `:109`, batch `:434-519`, caller `commands.py:161`, update branch `commands.py:120-135` | Plain `INSERT`, no upsert; constraint error swallowed → rollback; CLI prints success + exit 0 | Root: S3 non-idempotent writes; update path; G6 false-confidence test |
-| B2 | Blocker | CI gates: tests and ruff are green since 2026-10-23; **mypy still red (18 errors / 5 files)**; black still conflicts with the project's 2-space/120-col style | Process / verification | `tests/**`, `pyproject.toml:75`, `ci.yml`, `src/**` | v2 schema migration finished in tests; mypy never ran until 2026-10-23 (not installed) so its debt is newly visible; black hardcodes 4-space vs project 2-space → that gate can never pass | m21, T1–T5 |
-| B3 | Blocker | One bad row kills whole batch; payload without `problem_data` vanishes uncounted (returns 0/0) | Failure isolation / data integrity | `operations.py:434-570`, silent skip `:473` | One transaction per batch, no per-row savepoint; skip path logs nothing, counts nothing | Same root as B1; M12 (`TOUR` poisons batch) |
+| B1 | Blocker | Rerun on existing DB silently no-ops: duplicate key → batch rollback, stale row kept, exit 0, JSON rewritten anyway → DB/JSON diverge | Data integrity / workflow | `operations.py:292` (`_insert_hub`), UNIQUE `:109`, batch `:434-519`, caller `commands.py:161`, update branch `commands.py:120-135` | **Resolved 2026-11-03**: `_upsert_problem_row` updates the hub in place (same id), refreshes `updated_at`, deletes the type-table and matrix rows, and re-inserts — verified by `test_reinserting_same_name_and_type_updates_in_place` | Closed |
+| B2 | Blocker | CI gates: tests and ruff are green since 2026-10-23; **mypy still red (18 errors / 5 files)**; black still conflicts with the project's 2-space/120-col style | Process / verification | `tests/**`, `pyproject.toml:75`, `ci.yml`, `src/**` | **mypy resolved 2026-11-03**: `mypy src` → 0 errors (parallel/update/parquet_writer/commands annotations). black remains rejected in favour of `ruff format` | Closed |
+| B3 | Blocker | One bad row kills whole batch; payload without `problem_data` vanishes uncounted (returns 0/0) | Failure isolation / data integrity | `operations.py:434-570`, silent skip `:473` | **Resolved 2026-11-03**: one transaction per problem (DuckDB has no savepoints); a failing row rolls back alone and lands in `failed[]`; missing `problem_data` is counted as a failure — verified by `test_batch_isolates_a_refused_problem` and `tests/converter/test_integration_batch_accounting.py` | Closed |
 | M1 | Major | `analyze` crashes on any DB with HCP/SOP; `--type TOUR` guaranteed to fail | Correctness / CLI | `commands.py:313`, `:264`; `operations.py:830-831`, `:281-287` | `None` formatted with `:<15` (NULL `edge_weight_type` emitted as `CAST(NULL AS VARCHAR)`); `TOUR` offered in `Choice` but schema guard raises | M12 taxonomy drift |
-| M2 | Major | JSON output: path traversal via file `NAME`, silent overwrite, thread race, JSON/DB key divergence | Security / data integrity | `json_writer.py:64,122`; `validation.py:70-71`; `commands.py:170-185`; `operations.py:573-583` | `NAME` only checked non-empty → `lucas_galdino` escapes output dir; duplicate `NAME` overwrites; concurrent threads same path; DB disambiguates by stem, JSON doesn't | Validation gap; key-policy split vs DB |
-| M3 | Major | Float edge weights silently rounded to int (`1.5` → `2`) | Data integrity | `operations.py:191`; `models.py:161-176`; `transformer.py:186` | Schema `INTEGER[][]` vs parser `int \| float`; stored/read-back truncation verified | — |
-| M4 | Major | Failed matrix conversion still stores problem, minus distances | Silent failure / data integrity | `transformer.py:85-98` vs `api.py:203-206` | Warn + `None` instead of re-raise; contradicts own comment "stores an unreadable problem" | S2 lenient storage |
+| M2 | Major | JSON output: path traversal via file `NAME`, silent overwrite, thread race, JSON/DB key divergence | Security / data integrity | `json_writer.py:64,122`; `validation.py:70-71`; `commands.py:170-185`; `operations.py:573-583` | **Resolved 2026-11-03**: filenames are `_sanitize_segment`-cleaned `<name>.<type>.json`; identical `(name, type)` content is skipped under a lock; changed content still overwrites (`test_unit_output_guards.py`) | Closed |
+| M3 | Major | Float edge weights silently rounded to int (`1.5` → `2`) | Data integrity | `operations.py:191`; `models.py:161-176`; `transformer.py:186` | **Resolved 2026-11-03**: `_nint(x) = int(floor(x + 0.5))` applied in `_convert_edge_weights_to_matrix`; `INTEGER[][]` kept per DP10-12 (`test_fractional_explicit_weights_use_tsplib95_nint`) | Closed |
+| M4 | Major | Failed matrix conversion still stores problem, minus distances | Silent failure / data integrity | `transformer.py:85-98` vs `api.py:203-206` | **Resolved 2026-11-03**: EXPLICIT conversion failure raises `TransformError`, so the worker discards the problem (`test_explicit_conversion_failure_raises_transform_error`) | Closed |
 | M5 | Major | VRP preprocessed temp files orphaned on every parse failure | Resource leak | `parser.py:142-146` (unlink on success only), temp created `:366-375` | No `try/finally`; correct pattern exists in `transformer.py` tour path — **fixed 2026-10-14** (PB3, see `src/tsplib_parser/TODO.md` §9) | G1 no tests |
 | M6 | Major | `special_func` documented, accepted, dropped; `UnsupportedFeatureError` never raised | Dead feature / API lie | `parser.py:83-142`, `:790`; `models.py:831` | `StandardProblem.parse(text, **options)` never reads options; no dispatch | **Revised 2026-10-14 (P2):** XRAY parses and needs no `special_func`; the parser must record the declared weight type (parser-side, Phase C) and the converter raises `UnsupportedFeatureError` for `SPECIAL` without a callable — done (`CV2` in `src/converter/TODO.md`) |
-| M7 | Major | `is_symmetric` guessed from format names, can be false | Data integrity | `parser.py:727-753` | Only `ATSP` + 4 formats return `False`; asymmetric `FULL_MATRIX` TSP recorded symmetric; `TYPE : ATSP (author)` bypasses string check | — |
+| M7 | Major | `is_symmetric` guessed from format names, can be false | Data integrity | `parser.py:727-753` | **Resolved**: `_check_symmetry` builds the explicit matrix (also for `FULL_MATRIX`) and `check_symmetry` compares `(i, j)` vs `(j, i)` values; `test_symmetry_check_inspects_explicit_matrix_values` | Closed |
 | M8 | Major | CVRP customer-only matrices get fabricated zeroed depot row | Data integrity | `transformer.py:238-262` | Deliberate decision #5; `0.0` is not a distance → garbage depot legs | Accepted compromise, unmarked |
 | M9 | Major | `errors="latin-1"` is not a codec error handler → tour files silently dropped | Silent failure / correctness | `transformer.py:423` | `LookupError: unknown error handler` → broad except → `None` → tour absent | G2 untested path |
 | M10 | Major | `SimpleConverter.to_json(data, "problem.json")` crashes | Correctness / public API | `api.py:65` | `os.makedirs(os.path.dirname(...))` → `makedirs("")` → `FileNotFoundError` — **fixed 2026-10-26** (guarded `if dirname: os.makedirs(dirname)`) | Closed |
-| M11 | Major | `converter validate` validates nothing | UX / docs | `commands.py:228-258`; `verify_database.py` | Body prints stats; docstring promises schema/integrity checks; command can never fail | Real checks exist but unwired (G8) |
+| M11 | Major | `converter validate` validates nothing | UX / docs | `commands.py:228-258`; `verify_database.py` | **Resolved 2026-11-03**: `DatabaseManager.integrity_failures()` runs seven SQL checks (hub/type joins both ways, EXPLICIT matrix presence, square/dimension, coordinates, solutions FK) and the CLI exits 1 on any violation (`test_integration_validate_integrity.py`) | Closed |
 | M12 | Major | Problem-type taxonomy copied 5+ times, already drifted | Architecture / SSOT | `operations.py:105,200-206,212-218,281-287`; `validation.py:88`; `scanner.py:150-157`; `commands.py:264`; `__init__.py:8-14` | No single enum/registry; `TOUR` accepted by CLI/docs, rejected by schema | Partially resolved 2026-10-26 (STORABLE_PROBLEM_TYPES in types.py wired to DB CHECK and dispatch) |
 | m1 | Minor | `--batch-size` no-op | CLI / UX | `parallel.py:44`; `commands.py:140` | Stored, never read; scanner batching never triggers | — |
 | m2 | Minor | `--workers 0` crashes | Correctness | `commands.py:138-146` | No validation; `ProcessPoolExecutor(0)` ValueError — **fixed 2026-10-26** (validated workers >= 1 via click.BadParameter) | Closed |
@@ -153,11 +151,11 @@ uv run converter process -i datasets_raw/problems -o <tmp>   # corpus run when a
 | m10 | Minor | Scanner order = filesystem order; no dedupe; `stat()` races deletion | Reproducibility / workflow | `scanner.py:63,110,138-141` | Unsorted `rglob`; `problem_id` differs per machine | — |
 | m11 | Minor | CLI heuristically re-scans `cvrplib` sibling; root containing `cvrplib`/`all_problems` double-lists files | Workflow | `commands.py:99-111` | String-match MDVRP filter + extra scan root → duplicate input | Feeds B1/B3 rollback |
 | m12 | Minor | `config.yaml` write-only | Config | `commands.py:329-373`; `load_config` 0 callers | `init` emits, nothing reads; `database_path` ignored; `log_file` never wired | S4 |
-| m13 | Minor | Version drift ×4 | Docs / API | `pyproject.toml` 0.1.0; `converter.__version__` 1.0.0; `tsplib_parser.__version__` 2.0.0; `commands.py:22` "0.1.0" | Hardcoded `version_option` | S5 |
+| m13 | Minor | Version drift ×4 | Docs / API | `pyproject.toml` 0.1.0; `converter.__version__` 1.0.0; `tsplib_parser.__version__` 2.0.0; `commands.py:22` "0.1.0" | **Resolved 2026-11-03**: package and CLI both report `0.2.0` (`click.version_option(version=__version__)`); `tsplib_parser` keeps its own 2.0.0 version by design | Closed |
 | m14 | Minor | Stale examples/docstrings (`nodes` key, `nodes.parquet`, "Step 5" w/o Step 4, unused `output_dir`) | Docs | `api.py:262-268`; `parquet_writer` docstring; `worker_functions.py:70`; `cordeau_parser.py:249` | Retired v1 shapes still documented | S1 |
 | m15 | Minor | Parser nits: `# EXPLAIN:` in parse loop; `self.func.__name__` AttributeError for `partial`; `MapT` dup keys last-wins; extra `EDGE_LIST` tokens ignored; `#` lines in sections hard-fail | Correctness / robustness | `models.py:860,142,832-905` | — | — |
 | m16 | Minor | Cordeau: time-window errors swallowed; extra node lines sliced away; MDVRP flattened to `CVRP`, per-depot `Q`/`D` dropped | Data integrity | `cordeau_parser.py:306-307,69-87`; `cordeau_converter.py:123,151` | RESOLVED: FormatError inheritance, CordeauProblem(Problem), to_tsplib lossless LKH mode with DEPOT_CAPACITY/DEPOT_DURATION sections | Closed |
-| m17 | Minor | f-string SQL in Parquet export (`COPY` interpolation, template+`replace`) | Security (bounded) | `parquet_writer.py:112-114,150-152,219` | Low exploitability (CLI validates), but contradicts parameterized discipline | — |
+| m17 | Minor | f-string SQL in Parquet export (`COPY` interpolation, template+`replace`) | Security (bounded) | `parquet_writer.py:112-114,150-152,219` | **Resolved 2026-11-03**: every export identifier passes `_assert_allowed_table` against `ALLOWED_TABLES`; custom output names reduced to their basename (`test_parquet_export_rejects_non_allowlisted_table`) | Closed |
 | m18 | Minor | `_calculate_checksum` returns `""` on error — indistinguishable from "changed" | Failure point | `update.py:126-131` | Transient read failure → reprocess loop | Feeds B1 |
 | m19 | Minor | `update_file_tracking` reimplements upsert (TOCTOU window) | Workflow / correctness | `operations.py:713-760` vs upsert at `:609` | Check-then-insert duplicates logic | — |
 | m20 | Minor | Unused runtime deps: `pandas` 0 imports, `ruff` as runtime dep, `pyyaml` reachable only via dead config | Dependencies | `pyproject.toml:20-31` | Liability with no consumer | m4, m12 |

@@ -63,10 +63,10 @@ def test_full_pipeline_scan_parse_transform_write(tmp_path: Path, test_data_dir:
   assert {entry["type"] for entry in stats["by_type"]} == {"TSP"}
 
   json_files: list[Path] = sorted(json_dir.rglob("*.json"))
-  assert [path.name for path in json_files] == ["berlin52.json", "gr17.json"]
+  assert [path.name for path in json_files] == ["berlin52.tsp.json", "gr17.tsp.json"]
 
   berlin: dict[str, Any] = json.loads(
-    (json_dir / "tsp" / "berlin52.json").read_text(encoding="utf-8")
+    (json_dir / "tsp" / "berlin52.tsp.json").read_text(encoding="utf-8")
   )
   assert berlin["problem"]["name"] == "berlin52"
   assert berlin["problem"]["dimension"] == 52

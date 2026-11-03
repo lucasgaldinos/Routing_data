@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "routing-data"
-version = "0.1.0"
+version = "0.2.0"
 description = "TSPLIB95 ETL Converter - Convert TSPLIB/VRP instances to JSON and DuckDB"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,7 +24,9 @@ classifiers = [
 
 dependencies = [
     "click>=8.3.0",
-    "duckdb>=1.5.6",
+    # Lower bound relaxed to the release line that still exposes every API the
+    # converter uses (DP10-7); the previous pin exceeded what the code requires.
+    "duckdb>=1.4.0",
     "pandas>=2.3.3",
     "psutil>=5.9.0",
     "pyyaml>=6.0",

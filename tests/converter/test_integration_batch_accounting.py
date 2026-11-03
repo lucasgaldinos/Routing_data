@@ -17,9 +17,9 @@ B1/B3 in ``TODO.md`` and CV9 item 1 in ``src/converter/TODO.md``.
 EXPECTED
 --------
 - A batch of valid problems accounts exactly (inserted == inputs, failed == 0).
-- A mixed batch accounts exactly too, with the good problems stored: the three
-  cases below are ``xfail(strict=True)`` until isolation lands, so an accidental
-  fix turns the suite red instead of passing silently.
+- A mixed batch accounts exactly too, with the good problems stored: a refused
+  type fails alone and the siblings keep their rows (B3 isolation).
+- A payload with no ``problem_data`` is reported as one failure, not dropped.
 """
 
 from pathlib import Path
@@ -62,10 +62,6 @@ def test_valid_batch_accounts_exactly(datasets_raw_dir: Path, tmp_path: Path) ->
 
 
 @pytest.mark.requires_dataset
-@pytest.mark.xfail(
-  strict=True,
-  reason="B3/CV9: one refused type rolls back the whole batch and every row is blamed with the same message.",
-)
 @pytest.mark.database
 def test_batch_accounting_adds_up_with_a_refused_file(datasets_raw_dir: Path, tmp_path: Path) -> None:
   """WHAT: two storable problems plus one ``TOUR`` file.
@@ -85,10 +81,6 @@ def test_batch_accounting_adds_up_with_a_refused_file(datasets_raw_dir: Path, tm
 
 
 @pytest.mark.requires_dataset
-@pytest.mark.xfail(
-  strict=True,
-  reason="B3: the failed-type error is attributed to every row in the batch, not to the offending one.",
-)
 @pytest.mark.database
 def test_refused_file_does_not_lose_its_siblings(datasets_raw_dir: Path, tmp_path: Path) -> None:
   """WHAT: the good problems of a mixed batch.
@@ -108,10 +100,6 @@ def test_refused_file_does_not_lose_its_siblings(datasets_raw_dir: Path, tmp_pat
   assert stored == {"att48", "br17"}
 
 
-@pytest.mark.xfail(
-  strict=True,
-  reason="B3: operations.py:473 skips a payload without problem_data without logging or counting it.",
-)
 @pytest.mark.database
 def test_payload_without_problem_data_is_counted(tmp_path: Path) -> None:
   """WHAT: a worker result that carries no ``problem_data``.

@@ -37,6 +37,6 @@ from .api import (
   to_json,
 )
 
-__version__ = "1.0.0"
+__version__ = "0.2.0"
 __author__ = "TCC Routing Data Project"
 __all__ = ["create_simple_converter", "parse_file", "process_directory", "to_database", "to_json"]

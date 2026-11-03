@@ -684,7 +684,7 @@ wheels = [
 
 [[package]]
 name = "routing-data"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -715,7 +715,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.3.0" },
-    { name = "duckdb", specifier = ">=1.5.6" },
+    { name = "duckdb", specifier = ">=1.4.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.4.0" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "psutil", specifier = ">=5.9.0" },

@@ -285,3 +285,61 @@ def compute_routes_cost(
   if distance is None:
     return None
   return sum(_route_length(route, distance) for route in routes)
+
+
+# ---------------------------------------------------------------------------
+# Public scalar-function surface (DP10-13).
+#
+# Downstream consumers (``gpu_accelerated_clean/src/distances/pairwise.py``)
+# re-export these instead of re-implementing the TSPLIB95 arithmetic. They are
+# thin aliases over the private implementations so the internal registry and
+# its ``_name`` references stay untouched.
+# ---------------------------------------------------------------------------
+
+nint = _nint
+"""TSPLIB95 ``nint(x) = int(x + 0.5)``."""
+
+euclidean_2d = _euclidean_2d
+euclidean_3d = _euclidean_3d
+ceil_2d = _ceiling_2d
+manhattan_2d = _manhattan_2d
+manhattan_3d = _manhattan_3d
+maximum_2d = _maximum_2d
+maximum_3d = _maximum_3d
+geographical = _geographical
+att = _att
+xray1 = _xray1
+xray2 = _xray2
+
+#: Coordinate-based ``EDGE_WEIGHT_TYPE`` -> public distance function.
+COORDINATE_DISTANCES: dict[str, Callable[[Sequence[float], Sequence[float]], int]] = {
+  "EUC_2D": euclidean_2d,
+  "EUC_3D": euclidean_3d,
+  "CEIL_2D": ceil_2d,
+  "MAN_2D": manhattan_2d,
+  "MAN_3D": manhattan_3d,
+  "MAX_2D": maximum_2d,
+  "MAX_3D": maximum_3d,
+  "GEO": geographical,
+  "ATT": att,
+  "XRAY1": xray1,
+  "XRAY2": xray2,
+}
+
+__all__ = [
+  "COORDINATE_DISTANCES",
+  "att",
+  "ceil_2d",
+  "compute_routes_cost",
+  "euclidean_2d",
+  "euclidean_3d",
+  "geographical",
+  "manhattan_2d",
+  "manhattan_3d",
+  "maximum_2d",
+  "maximum_3d",
+  "nint",
+  "supported_weight_types",
+  "xray1",
+  "xray2",
+]

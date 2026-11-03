@@ -65,7 +65,7 @@ class TestJSONWriterBasic:
     path = writer.write_problem(sample_data, organize_by_type=True)
 
     # Verify path structure
-    expected_path: Path = Path(tmp_path) / "tsp" / "gr17.json"
+    expected_path: Path = Path(tmp_path) / "tsp" / "gr17.tsp.json"
     assert path == str(expected_path), f"Path should be {expected_path}"
     assert expected_path.exists(), "File should exist"
 
@@ -82,7 +82,7 @@ class TestJSONWriterBasic:
     path: str = writer.write_problem(sample_data, organize_by_type=False)
 
     # Verify path structure
-    expected_path: Path = Path(tmp_path) / "gr17.json"
+    expected_path: Path = Path(tmp_path) / "gr17.tsp.json"
     assert path == str(expected_path), f"Path should be {expected_path}"
     assert expected_path.exists(), "File should exist"
 
@@ -100,7 +100,7 @@ class TestJSONWriterBasic:
 
     written_path = Path(writer.write_problem(malicious_data, organize_by_type=True))
     assert written_path.resolve().is_relative_to(tmp_path.resolve())
-    assert written_path.name == "traversal_attack.json"
+    assert written_path.name == "traversal_attack.tsp.json"
 
   @pytest.mark.requires_dataset
   def test_write_problem_creates_type_subdirectory(self, tmp_path: Path, sample_data: dict[str, Any]) -> None:
@@ -304,8 +304,8 @@ class TestJSONWriterBatch:
     paths: list[str] = writer.write_batch(batch_data)
 
     filenames: list[str] = [Path(p).name for p in paths]
-    assert "gr17.json" in filenames, "Should have gr17.json"
-    assert "berlin52.json" in filenames, "Should have berlin52.json"
+    assert "gr17.tsp.json" in filenames, "Should have gr17.tsp.json"
+    assert "berlin52.tsp.json" in filenames, "Should have berlin52.tsp.json"
 
 
 class TestJSONWriterUtility:
@@ -322,7 +322,7 @@ class TestJSONWriterUtility:
 
     path: str = writer.get_output_path("test", "TSP", organize_by_type=True)
 
-    expected = str(Path(tmp_path) / "tsp" / "test.json")
+    expected = str(Path(tmp_path) / "tsp" / "test.tsp.json")
     assert path == expected, f"Path should be {expected}"
 
   def test_get_output_path_without_type_organization(self, tmp_path: Path) -> None:
@@ -336,7 +336,7 @@ class TestJSONWriterUtility:
 
     path: str = writer.get_output_path("test", "TSP", organize_by_type=False)
 
-    expected = str(Path(tmp_path) / "test.json")
+    expected = str(Path(tmp_path) / "test.tsp.json")
     assert path == expected, f"Path should be {expected}"
 
   def test_get_output_path_lowercases_type(self, tmp_path: Path) -> None:
