@@ -57,7 +57,7 @@ This is the practical side of the factory design: how `StandardProblem.parse` ac
 - the full flow of one call, with a recorded stack trace.
 
 > [!note]
-> Claims verified against [`StandardProblem.parse`](../../../../src/tsplib_parser/models.py#L832-L920) and its production caller, [`parser.py:142`](../../../../src/tsplib_parser/parser.py#L142); the test suite also calls `parse` directly.
+> Claims verified against [`StandardProblem.parse`](../../../../src/tsplib_parser/models.py#L121-L165) and its production caller, [`parser.py:159`](../../../../src/tsplib_parser/parser.py#L159); the test suite also calls `parse` directly.
 > Every demo was run and its output pasted.
 
 ## The pattern in one line
@@ -74,7 +74,7 @@ problem = StandardProblem.parse(text)   # you call it on the CLASS
 #                 ^^^^^ this method creates one
 ```
 
-Inside, the first statement is the instantiation ([`models.py:851`](../../../../src/tsplib_parser/models.py#L851)):
+Inside, the first statement is the instantiation ([`models.py:137`](../../../../src/tsplib_parser/models.py#L137)):
 
 ```python
 problem = cls()
@@ -128,7 +128,7 @@ isinstance(cls(), cls)  -> True
 
 ## Why parse is written as a factory
 
-Its contract is "text in, problem out", and something has to create the object. The accumulator — `_SectionAccumulator`, the helper that collects data-section lines and feeds the whole body to the matching field — needs a target to write into before the line loop starts, so creation is the first thing that must happen rather than a side effect of it. Written as a classmethod factory it also returns a fully-built object, keeps multi-step logic outI also would like if yuo inserted the explanation of `__init__`, and stays overridable per subclass through `cls`.
+Its contract is "text in, problem out", and something has to create the object. `parse` is a two-pass reader — headers first, then section bodies — and every pass writes into a single instance through the `Field` descriptors, so that target has to exist before either pass runs. Creation is therefore the first thing that must happen rather than a side effect of it. Written as a classmethod factory it also returns a fully-built object, keeps the multi-step logic out of `__init__`, and stays overridable per subclass through `cls`.
 
 ## Why the object is created inside parse rather than outside
 
@@ -192,13 +192,13 @@ type of the class object -> type
 
 </details>
 
-Each fact is visible in `StandardProblem.parse` ([`models.py:851`](../../../../src/tsplib_parser/models.py#L851)):
+Each fact is visible in `StandardProblem.parse` ([`models.py:121`](../../../../src/tsplib_parser/models.py#L121)):
 
 | Primer fact | Where it appears in `parse` |
 | --- | --- |
-| a class is an object | `cls` is a parameter; `cls.fields_by_keyword` ([`:853`](../../../../src/tsplib_parser/models.py#L853)) reads from that object |
-| a class is a factory | `problem = cls()` — the very first line of the method body ([`:851`](../../../../src/tsplib_parser/models.py#L851)) |
-| class vs instance attributes | `fields_by_keyword` on the class; `setattr(problem, ...)` ([`:872`](../../../../src/tsplib_parser/models.py#L872)) writes onto the one instance |
+| a class is an object | `cls` is a parameter; `cls.fields_by_keyword` ([`:142`](../../../../src/tsplib_parser/models.py#L142)) reads from that object |
+| a class is a factory | `problem = cls()` — the very first line of the method body ([`:137`](../../../../src/tsplib_parser/models.py#L137)) |
+| class vs instance attributes | `fields_by_keyword` on the class; `setattr(problem, ...)` ([`:147`](../../../../src/tsplib_parser/models.py#L147)) writes onto the one instance |
 
 ## Alternative design with a mutating instance method
 
@@ -206,7 +206,6 @@ The proposed design is legal and readable:
 
 ```python
 p = StandardProblem()                                       # empty object
-acc = _SectionAccumulator(p, p.fields_by_keyword, errors)    # self-based lookup works
 p.parse(text)                                                # fills itself in
 ```
 
@@ -223,46 +222,36 @@ p.parse(text)                                                # fills itself in
 
 The decisive row is the silent-default one, and it is specific to this pipeline: because `Problem.__getattribute__` returns field defaults for unset attributes, an empty `StandardProblem()` does not explode. It answers `dimension → 0` and `name → None` as if it were real, which downstream becomes garbage rows with no error raised anywhere. The factory makes that state unreachable.
 
-Two smaller differences. `parse` aggregates every error and raises once at the end ([`models.py:918`](../../../../src/tsplib_parser/models.py#L918)) — a single `ParseError`, the module's aggregated exception, whose message joins every collected failure — so the mutating design would leave a live object that just failed validation, usable by any caller wrapping the call in `try`/`except`. And the mutating design requires the caller to know that a separate parse step exists at all, whereas with the factory the only sane way to obtain a problem is to obtain a correct one. See [attribute-lookup.md](./../theoretical/attribute-lookup.md) for the default-returning lookup that makes this matter.
+Two smaller differences. `parse` aggregates every error and raises once at the end ([`models.py:164`](../../../../src/tsplib_parser/models.py#L164)) — a single `ParseError`, the module's aggregated exception, whose message joins every collected failure — so the mutating design would leave a live object that just failed validation, usable by any caller wrapping the call in `try`/`except`. And the mutating design requires the caller to know that a separate parse step exists at all, whereas with the factory the only sane way to obtain a problem is to obtain a correct one. See [attribute-lookup.md](./../theoretical/attribute-lookup.md) for the default-returning lookup that makes this matter.
 
 ## Execution flow of one parse call
 
 Import-time work happens once and is covered in [metaclasses-new-mro.md](./../theoretical/metaclasses-new-mro.md); what follows is per call.
 
 ```text
-StandardProblem.parse(text)                                   models.py:832
+StandardProblem.parse(text)                                   models.py:121
 │  cls = StandardProblem                                       ← the class, not an object
 │
-├─ problem = cls()                                             models.py:851
+├─ problem = cls()                                             models.py:137
 │    └─ type.__call__ → object.__new__ → Problem.__init__(**{}) → no-op (no kwargs)
 │       result: an empty instance; every field still at its default
 │
 ├─ errors = []
-├─ acc = _SectionAccumulator(problem, cls.fields_by_keyword, errors)   models.py:853
+├─ raw_headers, raw_sections = _split_tsplib_text(text, errors)   models.py:139
 │
-├─ loop over text.split("\n")                                  models.py:855
-│   │
-│   ├─ "NAME: demo"       (has ":" and no section open)
-│   │    field = cls.fields_by_keyword["NAME"]                 ← read the class dict
-│   │    parsed = field.parse("demo")                          ← instance method on the field
-│   │    setattr(problem, "name", "demo")                      ← write the instance dict
-│   │
-│   ├─ "NODE_COORD_SECTION"   (ends with _SECTION)
-│   │    acc.close()   → nothing open, no-op
-│   │    acc.open("NODE_COORD_SECTION")
-│   │
-│   ├─ "1 0.0 0.0" ...    (data lines)
-│   │    acc.add("1 0.0 0.0")
-│   │
-│   └─ "EOF"
-│        acc.close()                              models.py:785 (def), 797 (field.parse)
-│          field = fields_by_keyword["NODE_COORD_SECTION"]
-│          parsed = field.parse("\n".join(lines))   ← the whole body is parsed at once
-│          setattr(problem, "node_coords", parsed)
+├─ for header_keyword, header_value in raw_headers:              models.py:141
+│   │    field = cls.fields_by_keyword.get(header_keyword)       ← read the class dict
+│   │    parsed = field.parse(header_value)                      ← instance method on the field
+│   │    setattr(problem, "name", "demo")                       ← write the instance dict
 │
-├─ acc.close()                                                 models.py:916  (trailing section)
-├─ if errors: raise ParseError(...)                            models.py:918
-└─ return problem                                              models.py:920
+├─ for section_keyword, section_body in raw_sections:            models.py:151
+│   │    sec_field = cls.fields_by_keyword.get(section_keyword)
+│   │    parsed = sec_field.parse_for_problem(section_body, problem)   models.py:157
+│   │       ← the whole collected body is parsed at once, with the headers available
+│   │    setattr(problem, "node_coords", parsed)
+│
+├─ if errors: raise ParseError(...)                            models.py:164
+└─ return problem                                              models.py:165
 ```
 
 The split this diagram makes obvious is the whole design in one line: schema read from the class, data written to the instance.
@@ -302,8 +291,8 @@ py
   [field.parse] keyword='TYPE' text='TSP'
 === STACK at the moment a field is parsed ===
   File "<stdin>", line 18, in <module>
-  File "/home/lucas_galdino/chimera/routing_data/src/tsplib_parser/models.py", line 870, in parse
-    parsed_value: Any = field.parse(value)
+  File "/home/lucas_galdino/chimera/routing_data/src/tsplib_parser/models.py", line 145, in parse
+    parsed_value: Any = field.parse(header_value)
   File "<stdin>", line 11, in traced
 
   [field.parse] keyword='DIMENSION' text='3'
@@ -313,7 +302,7 @@ as_name_dict: {'name': 'demo', 'problem_type': 'TSP', 'dimension': 3, 'edge_weig
 instance __dict__: ['dimension', 'edge_weight_type', 'name', 'node_coords', 'problem_type']
 ```
 
-The captured frame is the keyword path ([`models.py:870`](../../../../src/tsplib_parser/models.py#L870)): `StandardProblem.parse` → `field.parse(value)`. Section fields take the other branch — `_SectionAccumulator.close` ([`models.py:785`](../../../../src/tsplib_parser/models.py#L785)) calls `field.parse` on the whole collected body at once, which is why `NODE_COORD_SECTION` arrives as one multi-line text.
+The captured frame is the keyword path ([`models.py:145`](../../../../src/tsplib_parser/models.py#L145)): `StandardProblem.parse` → `field.parse(header_value)`. Section fields take the other branch — `Field.parse_for_problem` ([`fields.py:62`](../../../../src/tsplib_parser/fields.py#L62), overridden at [`fields.py:203`](../../../../src/tsplib_parser/fields.py#L203)) receives the whole collected body at once, which is why `NODE_COORD_SECTION` arrives as one multi-line text.
 
 Two things that trace makes obvious: the `self` inside `TransformerField.parse` is a **field**, not a problem, and `setattr(problem, ...)` writes to the instance while the schema stays on the class. For the import-time half of the picture, see [descriptors-fields.md](./../theoretical/descriptors-fields.md) and [metaclasses-new-mro.md](./../theoretical/metaclasses-new-mro.md).
 

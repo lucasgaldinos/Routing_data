@@ -172,7 +172,10 @@ flowchart LR
 | `tsplib_parser/types.py` | 241 | Spec vocabularies + section grammars; no I/O | `ProblemType` `:53`, `PROBLEM_TYPE_ALIASES` `:72`, `VALID_PROBLEM_TYPES` `:77`, `EXTENSION_TYPE_HINTS` `:84`, `EDGE_WEIGHT_TYPES` `:96`, `SectionGrammar` `:126`, `SECTION_GRAMMARS` `:159`, `NODE_COORD_DIMENSIONS` `:237`, `DISPLAY_DATA_DIMENSIONS` `:241` | — |
 | `tsplib_parser/exceptions.py` | 129 | Exception hierarchy + context wrapping | `FormatError` `:24` (`wrap`/`amend`), `ParseError(FormatError, ValueError)` `:77`, `ValidationError` `:96`, `UnsupportedFeatureError` `:114` | — |
 | `tsplib_parser/matrix.py` | 363 | EXPLICIT matrix classes + format registry | `Matrix` `:54`, `FullMatrix` `:156`, `HalfMatrix` `:170`, the 8 half-matrix variants `:223`–`:343`, `TYPES` `:353` | `exceptions` |
-| `tsplib_parser/models.py` | 967 | Field-based TSPLIB95 model (utilities + transformers + fields + model in one module, `PP1`) | `BiSep` `:54`, `Transformer` `:115`, `FuncT` `:129`, `NumberT` `:152`, `EdgeDataT` `:169`, `ContainerT`/`ListT`/`MapT` `:229`/`:308`/`:318`, `Field`/`TransformerField` `:409`/`:436`, 9 concrete fields `:453`–`:551`, `FileMeta` `:597`, `Problem` `:621`, `_SectionAccumulator` `:723`, `StandardProblem` `:785` | `exceptions`, `matrix` |
+| `tsplib_parser/transformers.py` | 388 | Text deserialization primitives (separators, callables, numbers, containers) | `BiSep` `:17`, `Transformer` `:73`, `FuncT` `:87`, `NumberT` `:110`, `EdgeDataT` `:127`, `ContainerT` `:202`, `ListT` `:281`, `MapT` `:291` | `exceptions` |
+| `tsplib_parser/tokenization.py` | 100 | Lexical split of the stream into headers and section bodies; no field knowledge | `_looks_like_keyword_header` `:8`, `_fixed_inline_pairs` `:21`, `_split_tsplib_text` `:45` | — |
+| `tsplib_parser/fields.py` | 270 | Declarative `Field` descriptors; one class per keyword or section shape | `Field` `:24`, `TransformerField` `:67`, 11 concrete fields `:84`–`:214` | `exceptions`, `transformers` |
+| `tsplib_parser/models.py` | 350 | Domain entity hierarchy + problem registry; no field classes, no tokenizer | `FileMeta` `:33`, `Problem` `:57`, `StandardProblem` `:87`, `ExtendedProblem` `:236`, `PROBLEM_REGISTRY` `:288`, `register_problem_class` `:291`, `get_problem_class_for_type` `:318` | `exceptions`, `matrix`, `fields`, `tokenization` |
 | `tsplib_parser/parser.py` | 901 | ETL entry point: preprocess → parse → validate → extract | `_STRIPPED_SECTIONS` `:20`, `FormatParser` `:34`, `parse_file` `:103`, 8 `_extract_*` `:390`–`:704` | `exceptions`, `models`, `validation`, `matrix` |
 | `tsplib_parser/validation.py` | 203 | Cross-field invariants over `as_name_dict()` | `validate_problem_data` `:25`, `validate_coordinates` `:167`, `FUNCTIONAL_EDGE_WEIGHT_FORMATS`, `WEIGHT_BEARING_TYPES` | `matrix`, `types` |
 | `tsplib_parser/cordeau/*` | 730 | Standalone Cordeau MDVRP parser + converter to TSPLIB CVRP text; not wired into `FormatParser` (`PP6`) | `CordeauParseError` `cordeau_parser.py:13`, `CordeauParser` `:19`, `CordeauConverter.to_tsplib95` `cordeau_converter.py:46`, `CordeauProblem` `cordeau_types.py:70` | within `cordeau/` |
@@ -247,7 +250,7 @@ sequenceDiagram
     FormatParser-->>-Caller: dict with the 8 top-level keys
 ```
 
-`parse_file` (`parser.py:103`) runs: `_preprocess_vrp_file` (`:158`, impl `:219`) → read + `StandardProblem.parse` (`:165-167`) → `validate_problem` (`:173`, impl `:822`) → extractors (`:179`–`:196`). The temp file is unlinked in `finally` (`:168-170`, `PB3` fixed). `special_func` is accepted and forwarded as `special=` (`:167`) but the model ignores `**options` (`models.py:811`), so it is dead (`PB1`).
+`parse_file` (`parser.py:105`) runs: `_preprocess_vrp_file` (`:221`, pure in-memory text — nothing is written to disk) → `cls_to_use.parse(text)` (`:159`) → `validate_problem` (`:165`, impl `:569`) → extractors (`:179`–`:196`). `special_func` is accepted and forwarded as `special=` but the model ignores `**options`, so it is dead (`PB1`).
 
 | Extractor | Line | Reads (model attribute) | Result key | Conditional? |
 | --- | --- | --- | --- | --- |
@@ -415,7 +418,7 @@ Violations present today:
 
 **Parallelism.** `ParallelProcessor` (`utils/parallel.py:15`) holds `max_workers` and `batch_size` and dispatches `ProcessPoolExecutor` for CPU-bound work or `ThreadPoolExecutor` otherwise (`:92-103`); the worker is module-level and picklable by construction (`worker_functions.py:22`). `batch_size` is stored but never read (`m1`), `memory_limit_mb` is advertised but unused (`m3`), and whole-corpus results are held in memory before one batch insert (`m22`). Pickling the parse result is safe only because it is a plain dict of primitives plus, for EXPLICIT problems, a `list[list]` — the `Matrix` object is never forwarded to workers (the transformer converts it to `edge_weight_matrix`).
 
-**Conventions** (`pyproject.toml`): python `>=3.12` (`pyproject.toml:10`; PEP 695 generics are used at `models.py:115`), ruff `line-length = 120`, `indent-width = 2`, `select = ["E","F","W","I","B","UP","ANN","S","RUF","TCH"]`, `ignore = ["ANN401"]`; mypy `strict = true` with `duckdb`/`psutil`/`pandas` `ignore_missing_imports`; pytest configured once in `[tool.pytest.ini_options]` (`--strict-markers`, 10 markers) — the `m21` duplicate is closed. Tests follow `.github/instructions/test.instructions.md` (WHAT/WHY/EXPECTED docstrings, value assertions, boundary coverage) and `.github/instructions/testing_instructions.md` (no `@pytest.mark.skip` documenting a bug; one concern per folder).
+**Conventions** (`pyproject.toml`): python `>=3.12` (`pyproject.toml:10`; PEP 695 generics are used at `models.py:115`), ruff `line-length = 120`, `indent-width = 2`, `select = ["E","F","W","I","B","UP","ANN","S","RUF","TCH"]`, `ignore = ["ANN401"]`; mypy `strict = true` with `duckdb`/`psutil`/`pandas` `ignore_missing_imports`; pytest configured once in `[tool.pytest.ini_options]` (`--strict-markers`, 10 markers) — the `m21` duplicate is closed. Tests follow `.agents/rules/testing.instructions.md` (WHAT/WHY/EXPECTED docstrings, value assertions, boundary coverage; no `@pytest.mark.skip` documenting a bug; one concern per folder).
 
 ---
 
@@ -469,7 +472,6 @@ ADR-style index. Each row links the owning register; the register holds the deta
 | `PB13` | `DISPLAY_DATA_SECTION` dropped when there is no `NODE_COORD_SECTION` | same | `bayg29.tsp`'s 29 display rows never reach the result |
 | `PB14` | 34 pre-existing ruff findings in two matrix test modules | same | `ruff check tests` is red, diluting the signal |
 | `PC1` / `PC2` | Untyped result dict; `getattr` idiom because descriptors defeat the checkers | same §5 | The `converter` boundary is untyped by construction |
-| `PC6` | `detect_special_distance_type` substring-sniffs the whole file | same | A `COMMENT` mentioning "SPECIAL" flips the result |
 | `PC7` | Untested behaviour incl. the corpus gate | same | The 239-file guardrail is not a test (§9) |
 | `PC8` | One vocabulary — fixed by `types.py` | same | This is the principle, not a defect; the enforcement point for new types |
 | `PP1` | `models.py` is a ~950-line grab-bag | same §4 | FIXED: decomposed into `tokenization.py`, `fields.py`, `transformers.py`, and `models.py` |

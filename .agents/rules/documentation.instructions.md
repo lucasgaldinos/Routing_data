@@ -1,11 +1,11 @@
 ---
+# --- Antigravity rule keys ---
+trigger: glob
+globs: "docs/**/*.md, **/TODO.md, **/README.md, AGENTS.md"
+description: "Use when writing or editing specs, TODOs, READMEs, or architecture notes: authority order, link style, register shapes, naming, and corpus independence." # shared with VS Code
+# --- VS Code instruction keys ---
 name: "Documentation Standards"
-description: >
-  Authority order, link style, table budget, register shapes, naming and
-  corpus-independence rules for specs, TODOs, READMEs and architecture notes.
-  Apply when creating or editing any markdown file in this repository, and when
-  a format or design claim is written down.
-applyTo: "docs/**/*.md", "**/TODO.md", "**/README.md", "AGENTS.md"
+applyTo: "docs/**/*.md, **/TODO.md, **/README.md, AGENTS.md"
 ---
 
 # Documentation standards

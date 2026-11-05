@@ -15,7 +15,7 @@ related_files:
   - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
   - [DATABASE_CONNECTION_GUIDE.md](../DATABASE_CONNECTION_GUIDE.md)
   - [PARQUET_EXPORT.md](./PARQUET_EXPORT.md)
-  - [CONTRIBUTING.md](../reference/CONTRIBUTING.md)
+  - [AGENTS.md](../../AGENTS.md)
 tags:
   - guide/usage
   - guide/cli
@@ -665,7 +665,7 @@ python -m converter.cli.commands process \
 
 ### Check Documentation
 
-- Contributing Guide: `../reference/CONTRIBUTING.md`
+- Contributing Guide: `../../AGENTS.md`
 - Architecture Decisions: `../reference/ARCHITECTURE_DECISIONS.md`
 - TSPLIB95 Format Spec: `../reference/tsplib95_format.md`
 - Database Guide: `../DATABASE_CONNECTION_GUIDE.md`
@@ -677,10 +677,10 @@ python -m converter.cli.commands process \
 python -m pytest tests/ -v
 
 # Specific modules
-python -m pytest tests/test_converter -v
+python -m pytest tests/converter -v
 
-# Integration tests
-python -m pytest tests/test_integration -v
+# End-to-end chain
+python -m pytest tests/e2e -v
 ```
 
 ### Command Help

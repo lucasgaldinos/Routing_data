@@ -70,11 +70,11 @@ Notes:
 
 ## Open Tasks & Findings Registered 2026-10-21
 
-### CV3 — Rename `DataTransformer` -> `ProblemNormalizer` (Task 4.1) — **DONE 2026-11-03**
+### CV3 — Rename `DataTransformer` -> `ProblemNormalizer` (Task 4.1) — **RE-OPENED 2026-11-04 (remove alias & migrate tests/docs)**
 
 - **Problem**: Naming collision between `tsplib_parser.transformers.Transformer` (format string deserializer) and `converter.core.transformer.DataTransformer` (ETL domain normalizer).
-- **Plan**: Class-only rename `DataTransformer` -> `ProblemNormalizer` in `src/converter/core/transformer.py`. Update references in `src/converter/` and `tests/converter/`. Keep module filename intact to minimize blast radius.
-- **Status**: DONE. The class is `ProblemNormalizer` (returning the `NormalizedProblemData` `TypedDict`); a `DataTransformer = ProblemNormalizer` alias keeps older callers working. `src/` callers (`api.py`, `utils/worker_functions.py`, `output/json_writer.py`) were updated to the new name.
+- **Plan**: Class-only rename `DataTransformer` -> `ProblemNormalizer` in `src/converter/core/transformer.py`. Remove the `DataTransformer = ProblemNormalizer` alias and update all remaining references in `tests/` (20 sites) and `docs/` (6 sites). Keep module filename intact to minimize blast radius.
+- **Status**: IN PROGRESS. `src/` callers (`api.py`, `utils/worker_functions.py`, `output/json_writer.py`) use `ProblemNormalizer`, but `transformer.py:511` still exports `DataTransformer = ProblemNormalizer` and 20 test files + 6 doc files still reference `DataTransformer` (tracked in root `TODO.md` Task 4.1).
 
 ### CV4 — Pre-existing v1-schema assertion failures — **CLOSED (stale entry)**
 

@@ -17,7 +17,7 @@ related_files:
   - "[Getting Started](./guides/GETTING_STARTED.md)"
   - "[User Guide](./guides/USER_GUIDE.md)"
   - "[Architecture Decisions](./reference/ARCHITECTURE_DECISIONS.md)"
-  - "[Contributing](./reference/CONTRIBUTING.md)"
+  - "[Contributing](../AGENTS.md)"
 tags: [guide/documentation, notes/index, guide/setup, guide/cli, guide/database, analysis/architecture, notes/overview, guide/etl, analysis/testing, guide/development, notes/documentation]
 ---
 # TSPLIB95 ETL System - Documentation
@@ -48,17 +48,33 @@ tags: [guide/documentation, notes/index, guide/setup, guide/cli, guide/database,
 | **[Architecture Guide](reference/ARCHITECTURE_DECISIONS.md)** | System design & technical decisions | Architects, developers |
 | **[Architecture Blueprint](ARCHITECTURE.md)** | Module map, parse pipeline, data contract, extension points | Architects, developers |
 
-### 🛠️ **Development** (`development/`)
+### 🛠️ **Source Walkthroughs** (`src/`)
 
-*Resources for contributors and maintainers*
+*Per-module guides for the parser and converter packages:*
 
 | Document | Purpose | Audience |
 | ---------- | --------- | ---------- |
-| **[Contributing](reference/CONTRIBUTING.md)** | Essential development patterns | Contributors |
+| **[Parser package](src/tsplib_parser/)** | `models`, `fields`, tokenization, parser pipeline, validation | Developers |
+
+### 🧠 **python Logic Studies** (`studies/`)
+
+*Reusable explanations of the language mechanisms the code relies on:*
+
+| Document | Purpose | Audience |
+| ---------- | --------- | ---------- |
+| **[python logic](studies/python-logic/)** | Classes, descriptors, metaclasses, factory patterns, dataclasses | Developers |
+
+### 🛠️ **Development**
+
+*Resources for contributors and maintainers:*
+
+| Document | Purpose | Audience |
+| ---------- | --------- | ---------- |
+| **[Contributing](../AGENTS.md)** | Working agreement, process invariants, testing discipline | Contributors |
 
 ### 🎨 **Visual Documentation** (`diagrams/`)
 
-*Technical diagrams and system visualizations*
+*Technical diagrams and system visualizations:*
 
 | Diagram | Purpose | Content |
 | --------- | --------- | --------- |
@@ -91,7 +107,7 @@ tags: [guide/documentation, notes/index, guide/setup, guide/cli, guide/database,
 
 ### Contributing to Development?
 
-1. **[Contributing](reference/CONTRIBUTING.md)** - Essential setup & patterns
+1. **[Contributing](../AGENTS.md)** - Essential setup & patterns
 
 ### Need Visual Understanding?
 
@@ -182,7 +198,7 @@ uv run converter process --workers 8 --batch-size 200 --progress
 
 ### Contributing
 
-- **Code**: Follow [Contributing](reference/CONTRIBUTING.md)
+- **Code**: Follow [Contributing](../AGENTS.md)
 - **Documentation**: Improve guides based on user feedback
 - **Testing**: Add test cases for edge cases
 

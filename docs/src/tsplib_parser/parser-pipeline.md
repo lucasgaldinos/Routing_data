@@ -39,34 +39,34 @@ Everything between a file on disk and a JSON payload: which layer does what, wha
 
 ## Three layers, not two
 
-The quoted `parser.py:808-888` range holds `validate_problem` ([`parser.py:808`](../../../src/tsplib_parser/parser.py#L808), ending at 852) and the start of `detect_special_distance_type` ([`parser.py:854`](../../../src/tsplib_parser/parser.py#L854)). They belong to three distinct layers:
+The layers below share one entry point: [`FormatParser`](../../../src/tsplib_parser/parser.py#L76) and its `parse_file` method ([`parser.py:105`](../../../src/tsplib_parser/parser.py#L105)). They belong to three distinct layers:
 
-- [`StandardProblem.parse`](../../../src/tsplib_parser/models.py#L832-L920) is **syntax**: does this text look like TSPLIB95? Keyword to field, section to body.
+- [`StandardProblem.parse`](../../../src/tsplib_parser/models.py#L121) is **syntax**: does this text look like TSPLIB95? Keyword to field, section to body.
 - [`validation.py`](../../../src/tsplib_parser/validation.py) is **semantics**: does the data agree with itself? `DIMENSION` against coordinate count, `DEMAND_SECTION` covering every node, `EXPLICIT` requiring a weight format and non-empty weights.
-- [`FormatParser.validate_problem`](../../../src/tsplib_parser/parser.py#L808) is the **bridge**: it normalizes the declared type, hands a plain dict to `validate_problem_data` ([`validation.py:13`](../../../src/tsplib_parser/validation.py#L13), called from [`parser.py:841`](../../../src/tsplib_parser/parser.py#L841)), then adds the one check needing the live object — coordinate count against `DIMENSION`.
+- [`FormatParser.validate_problem`](../../../src/tsplib_parser/parser.py#L569) is the **bridge**: it normalizes the declared type, hands a plain dict to `validate_problem_data` ([`validation.py:191`](../../../src/tsplib_parser/validation.py#L191), called from [`parser.py:583`](../../../src/tsplib_parser/parser.py#L583)), then raises one `ValidationError` carrying every collected message.
 
 The split pays off three ways: text can be parsed without being required to be valid; a dict already in the database can be validated without reparsing text; and `validation.py` stays pure functions over dictionaries, with no dependency on `Problem` or `Field`.
 
 ## The walk through parse_file
 
 ```text
-FormatParser.parse_file(path)                                  parser.py:82
-  1. _preprocess_vrp_file(path)      may write a temp file, strips VRP extensions
-  2. open(...).read()                text
-  3. StandardProblem.parse(text, ...)  the four steps of the parse loop
-  4. validate_problem(problem)       may raise
-  5. _extract_*                      plain dict result
+FormatParser.parse_file(path)                                  parser.py:105
+  1. read the file once into a string
+  2. _preprocess_vrp_file(...)        pure in-memory text, strips VRP extensions
+  3. cls_to_use.parse(text)           the four steps of the parse loop
+  4. validate_problem(problem)        may raise
+  5. _extract_*                       plain dict result
 ```
 
 Everything runs before the caller regains control, so a returned problem is never half-built — the per-step detail is in [factory-pattern.md](../../studies/python-logic/practical/factory-pattern.md).
 
 ## What decides what a file is: four mechanisms
 
-None of them is `detect_special_distance_type` — the dead detector participates in nothing.
+None of them needs a whole-file detector: the type, the grammar and the weight source are all decided from the parsed keywords.
 
 **Type normalization**, `_normalize_problem_type` (`parser.py`): the raw `TYPE` string is cut at the first `(` and upper-cased, then checked against `{"TSP", "ATSP", "CVRP", "VRP", "HCP", "SOP", "TOUR"}`. `TSP (M.~HOFMEISTER)` normalizes to `TSP`; anything outside the set passes through unchanged, with no error.
 
-**Validation**, [`validation.py:82`](../../../src/tsplib_parser/validation.py#L82): the same seven types; an unknown one appends `Unknown problem type: <x>` to the error list.
+**Validation**, [`validation.py`](../../../src/tsplib_parser/validation.py#L191): the same seven types; an unknown one appends `Unknown problem type: <x>` to the error list.
 
 **VRP variant reclassification**, in `_extract_problem_data` (`parser.py` 436-453), overrides the declared type:
 
@@ -95,12 +95,11 @@ Which helpers in the quoted range are live:
 
 | Symbol | Defined at | Called from | Status |
 | --- | --- | --- | --- |
-| `validate_problem` | `parser.py:808` | `parser.py:149`, inside `parse_file` | live |
-| `_check_symmetry` | `parser.py:727` | `parser.py:723`, inside `_extract_metadata` | live |
-| `_identify_weight_source` | `parser.py:763` | `parser.py:724`, inside `_extract_metadata` | live |
-| `detect_special_distance_type` | `parser.py:854` | nothing outside its own docstring | dead |
-| `validate_problem_data` | `validation.py:13` | `parser.py:841` | live |
-| `validate_coordinates` | `validation.py:121` | `validation.py:112` and `115`, plus re-exports at `__init__.py:51` and `67-68` | live |
+| `validate_problem` | `parser.py:569` | `parser.py:165`, inside `parse_file` | live |
+| `_check_symmetry` | `parser.py:543` | `parser.py:539`, inside `_extract_metadata` | live |
+| `_identify_weight_source` | `parser.py:562` | `parser.py:540`, inside `_extract_metadata` | live |
+| `validate_problem_data` | `validation.py:191` | `parser.py:583` | live |
+| `validate_coordinates` | `validation.py:623` | `validation.py` internals and the package re-exports | live |
 
 Exactly one function is dead — and the gap it implies is the real finding: SPECIAL is a label, never behaviour. `parse_file` builds `StandardProblem.parse(text, special=special_func)` at `parser.py:142`, `parse` accepts `**options` and never reads it, and `_identify_weight_source` still labels the problem `weight_source: "special_function"`. [`UnsupportedFeatureError`](../../../src/tsplib_parser/exceptions.py#L114) documents "SPECIAL distance types without custom function", but nothing raises it. A SPECIAL file therefore parses cleanly, carries no distances, claims a special function in its metadata, and raises no error anywhere.
 
@@ -115,13 +114,13 @@ The extras (`capacity_vol`, `capacity_weight`, `max_distance`, `has_time_windows
 
 ```text
 FormatParser.parse_file(path)
-  1. _preprocess_vrp_file(path)
-       reads the raw lines; recognises CAPACITY_VOL / DISTANCE / TIME_WINDOW_SECTION / PICKUP_SECTION ...
-       stores them in self._additional_vrp_fields      parser.py:357
-       writes a temp file WITHOUT those lines
-  2. StandardProblem.parse(text)    ← parses the stripped temp file
+  1. _preprocess_vrp_file(...)
+       reads the raw text; recognises CAPACITY_VOL / DISTANCE / TIME_WINDOW_SECTION / PICKUP_SECTION ...
+       stores them in the returned mapping (assigned to self._additional_vrp_fields)
+       returns the text WITHOUT those lines — nothing is written to disk
+  2. cls_to_use.parse(text)         ← parses the already-stripped text
   3. _extract_problem_data(problem)
-       merges self._additional_vrp_fields back into the result dict  parser.py:434
+       merges self._additional_vrp_fields back into the result dict
        and may rewrite result["type"] to MC-VRP / TW-VRP / PD-VRP
 ```
 
@@ -145,8 +144,8 @@ storage/JSON payload
 
 | Component | Input | Output | Job |
 | --- | --- | --- | --- |
-| `StandardProblem.parse` (`models.py:832`) | text | a `StandardProblem` | the only reader of the keyword/section format |
-| `FormatParser.parse_file` (`parser.py:82`) | a path | a plain dict | preprocessing, the call to `parse`, `validate_problem`, then `_extract_*` |
+| `StandardProblem.parse` (`models.py:121`) | text | a `StandardProblem` | the only reader of the keyword/section format |
+| `FormatParser.parse_file` (`parser.py:105`) | a path | a plain dict | preprocessing, the call to `parse`, `validate_problem`, then `_extract_*` |
 | `DataTransformer.transform_problem` (`converter/core/transformer.py:37`) | that dict | the storage payload | array columns, edge-weight expansion, metadata enrichment |
 
 The file format is parsed **once**. What happens more than once is *reshaping*, and it is worth naming rather than denying:
@@ -165,7 +164,7 @@ Folded in from the review that produced this series; each is a decision to make,
 | Graphing for a parsed problem without a full DB | no graph module exists; distances are labeled, not computed | fail fast if the distance type does not match, rather than assuming Euclidean; a model-side shortcut next to the DB-side default is reasonable |
 | Helper CLI to identify problem specs before conversion | `converter_cli.py` exists; the review command only inspected `zips/` | add a spec-inspection helper covering the whole raw tree |
 | Distance dispatch ownership | the parser only labels (`_identify_weight_source`); lengths are computed at the converter layer (`cost.py`) | decide between wiring `special`/dispatch into a distance module or deleting the parameter until that module exists — the current "advertised, accepted, ignored" state should not stay |
-| Matrices and lengths | `create_explicit_matrix` on `StandardProblem` (`models.py:922`); coordinate distances live at the converter layer — `src/converter/utils/cost.py` implements the TSPLIB set (`_COORD_DISTANCES`) and mirrors `src/distances/pairwise.py` in the sibling `gpu_accelerated_clean` repo (`distances/matrix.py`, `pairwise.py`) | reuse the existing implementations, not rewrite; keep the numpy variants as the benchmark-side source |
+| Matrices and lengths | `create_explicit_matrix` on `StandardProblem` (`models.py:167`); coordinate distances live at the converter layer — `src/converter/utils/cost.py` implements the TSPLIB set (`_COORD_DISTANCES`) and mirrors `src/distances/pairwise.py` in the sibling `gpu_accelerated_clean` repo (`distances/matrix.py`, `pairwise.py`) | reuse the existing implementations, not rewrite; keep the numpy variants as the benchmark-side source |
 | Parallel converter runs | scheduling lives in the converter driver; failures are not surfaced (open task) | surface per-file failures in the driver |
 | Recreate a problem from the DB | EXPLICIT matrices are stored, so edges/weights are reconstructible; no `render()` exists | DB-first: LKH-style emission would be a later, separate consumer of the same model — add a writer module when a consumer exists |
 | `DepotsField` terminal fix | `_split_items` strips only if present; depot sections without `-1` can raise | option 1 now (strip-only-if-present, path unreachable today) — adopt option 3 (tolerate `-1`-less sections) only when a real file forces it |

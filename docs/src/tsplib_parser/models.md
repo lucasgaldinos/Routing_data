@@ -35,8 +35,8 @@ The map of the three classes in [`models.py`](../../../src/tsplib_parser/models.
 
 | Component | Runs when | Owns | If removed |
 | --- | --- | --- | --- |
-| `FileMeta` | once per class, at import | builds `fields_by_name` and `fields_by_keyword` | `parse` has no keyword index, the default lookup in `__getattribute__` dies, `as_dict` cannot enumerate the schema |
-| `Problem` | inherited, never instantiated here | `__init__`, `__getattribute__`, `as_dict`/`as_name_dict`/`as_keyword_dict`, the lenient base `parse` | `parser.py` line 401 (`as_name_dict()`) breaks; unset fields raise `AttributeError` instead of returning defaults |
+| `FileMeta` | once per class, at import | builds `fields_by_name` and `fields_by_keyword` | `parse` has no keyword index, the `Field.__get__` default-returning lookup dies, `as_dict` cannot enumerate the schema |
+| `Problem` | inherited, never instantiated here | `__init__`, `as_dict`/`as_name_dict`/`as_keyword_dict`, the lenient base `parse` | `parser.py` (`as_name_dict()`) breaks; unset fields raise `AttributeError` instead of returning defaults |
 | `StandardProblem` | instantiated by `parse` | the 18 TSPLIB95 keywords, the strict `parse`, `create_explicit_matrix` | nothing parses; there is no schema |
 
 `Problem` declares zero `Field` values — [`models.py:629`](../../../src/tsplib_parser/models.py#L629) is a type annotation, not an assignment — so its registries are empty while `StandardProblem`'s hold the 18 real ones. The two dictionaries are separate objects, each built independently for its own class.
@@ -59,7 +59,7 @@ field.parse(value)              text → python data     per field
 
 ### What parse does, in one paragraph
 
-`StandardProblem.parse` ([`models.py:832-920`](../../../src/tsplib_parser/models.py#L832-L920)) is a single pass over the file lines: blank lines are skipped, `keyword: value` pairs outside sections go through `cls.fields_by_keyword`, `_SECTION`/`EOF` lines open and close a `_SectionAccumulator` that parses each collected body with `field.parse(body)`, and everything else is data. Errors are collected, never raised mid-stream, and one `ParseError` is raised at the end. The line-by-line walk and the accumulator are covered in detail in [parser-pipeline.md](./parser-pipeline.md).
+`StandardProblem.parse` ([`models.py:121`](../../../src/tsplib_parser/models.py#L121)) is a single pass over the file lines: blank lines are skipped, `keyword: value` pairs outside sections go through `cls.fields_by_keyword`, `_SECTION`/`EOF` lines open and close a section accumulator that parses each collected body with `field.parse(body)`, and everything else is data. Lexical splitting lives in `tokenization.py`, section storage in the parser itself; the `Field` classes in `fields.py` own the text-to-value conversion. Errors are collected, never raised mid-stream, and one `ParseError` is raised at the end. The line-by-line walk is covered in detail in [parser-pipeline.md](./parser-pipeline.md).
 
 ## Why the base class exists
 
@@ -106,7 +106,9 @@ The third row needs no registry work: the child's declaration overwrites the par
 <summary><h5>Demo: the first two rows, runnable (copy and run)</h5></summary>
 
 ```python
-from tsplib_parser.models import FuncT, IntegerField, StandardProblem, TransformerField
+from tsplib_parser.fields import IntegerField, TransformerField
+from tsplib_parser.models import StandardProblem
+from tsplib_parser.transformers import FuncT
 
 
 class HexField(TransformerField):
@@ -143,7 +145,7 @@ Both classes end up with 19 registered fields — the 18 inherited ones plus `in
 
 ### The third extension point: distance
 
-A different distance rule is neither a keyword nor a parse rule. `create_explicit_matrix` lives on `StandardProblem` ([`models.py:922`](../../../src/tsplib_parser/models.py#L922)), but the classification of *where* the weights came from lives one layer up, on the parser: `_identify_weight_source` ([`parser.py:763`](../../../src/tsplib_parser/parser.py#L763)), read into `metadata["weight_source"]` by `_extract_metadata` ([`parser.py:724`](../../../src/tsplib_parser/parser.py#L724)). `Field` classes stop at "text in, value out", so:
+A different distance rule is neither a keyword nor a parse rule. `create_explicit_matrix` lives on `StandardProblem` ([`models.py:167`](../../../src/tsplib_parser/models.py#L167)), but the classification of *where* the weights came from lives one layer up, on the parser: `_identify_weight_source` ([`parser.py:562`](../../../src/tsplib_parser/parser.py#L562)), read into `metadata["weight_source"]` by `_extract_metadata` ([`parser.py:497`](../../../src/tsplib_parser/parser.py#L497)). `Field` classes stop at "text in, value out", so:
 
 - a subclass that changes what numbers **mean** overrides a **method**;
 - a subclass that adds a keyword writes a **declaration**.
@@ -152,7 +154,7 @@ Two extension points, not one. How matrices are built today — and the numpy qu
 
 ## Why subclass polymorphism is needed
 
-Not needed today: no subclass of `StandardProblem` exists in the repository, and `CordeauProblem` (`cordeau/cordeau_types.py:69-70`) is an unrelated `@dataclass` outside this hierarchy. What `cls` buys is future-proofing — an `XRayProblem` that adds a keyword still works through the same `parse`, with no edit to `parse` itself:
+Needed today: `ExtendedProblem` ([`models.py:236`](../../../src/tsplib_parser/models.py#L236)) already subclasses `StandardProblem` to model TSPLIB-extended keywords, while `CordeauProblem` (`cordeau/cordeau_types.py`) is an unrelated `@dataclass` outside this hierarchy. What `cls` buys is extensibility — an `XRayProblem` that adds a keyword still works through the same `parse`, with no edit to `parse` itself:
 
 ```python
 class XRayProblem(StandardProblem):
@@ -165,17 +167,9 @@ To change how an existing keyword is parsed, re-declare the same attribute with 
 
 ## Open verdict: could a single class do?
 
-Merging `Problem` and `StandardProblem` is defensible for this repository. Deleting the base breaks nothing at runtime: the metaclass still fires on the merged class, `as_name_dict()` still serves `parser.py`, and the annotations still pass. The split earns its keep only as future reuse for a second keyword family.
+`Problem` carries the shared machinery (`__init__`, `as_dict`/`as_name_dict`, the `FileMeta` registries) without any `parse` of its own — parsing belongs strictly to format parsers (`PB6` fixed). Merging the two is still defensible for this repository: the metaclass fires on the merged class, `as_name_dict()` still serves `parser.py`, and the annotations still pass. The split earns its keep as the base for `ExtendedProblem` and future keyword families.
 
-What argues against the status quo is the inherited `Problem.parse`: a working but useless function that silently returns an empty instance, because the base class has no registered fields:
-
-```ascii
-Problem.parse("NAME: x\nTYPE: TSP\nDIMENSION: 5\n")
-  → instance __dict__ is empty, as_name_dict() returns {}
-  → r.dimension raises AttributeError: 'Problem' object has no attribute 'dimension'
-```
-
-No warning, no error — the silent-default mechanism described in [attribute-lookup.md](../../studies/python-logic/theoretical/attribute-lookup.md). The cheap fix is either to make the base `parse` raise, or to delete it and keep only the shared machinery in `Problem`. This stays open only because the base class itself awaits a verdict: a second keyword family would justify it, and nothing else does.
+No silent-empty path exists any more: an unregistered keyword or section is reported as an error by `StandardProblem.parse` ([`models.py:121`](../../../src/tsplib_parser/models.py#L121)) instead of being ignored, so the permissive base parser that used to return an empty instance is gone.
 
 ## Connections
 

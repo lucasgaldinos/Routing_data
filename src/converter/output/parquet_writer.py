@@ -48,7 +48,8 @@ class ParquetWriter:
   Example:
       >>> writer = ParquetWriter(output_dir="datasets/parquet")
       >>> writer.export_from_database("db/routing.duckdb")
-      >>> # Creates: problems.parquet, nodes.parquet, edge_weight_matrices.parquet
+      >>> # Creates one file per table, e.g. problems.parquet,
+      >>> # tsp_problems.parquet, cvrp_problems.parquet, edge_weight_matrices.parquet
   """
 
   def __init__(
@@ -132,7 +133,7 @@ class ParquetWriter:
 
     for table in tables:
       safe_table: str = _assert_allowed_table(table)
-      output_path = self.output_dir / f"{safe_table}.parquet"
+      output_path: Path = self.output_dir / f"{safe_table}.parquet"
 
       # DuckDB native Parquet export. ``safe_table`` is an identifier from the
       # ALLOWED_TABLES allowlist, never caller-controlled text.

@@ -17,12 +17,12 @@ related_files:
   - "[Getting Started](./docs/guides/GETTING_STARTED.md)"
   - "[User Guide](./docs/guides/USER_GUIDE.md)"
   - "[Architecture Decisions](./docs/reference/ARCHITECTURE_DECISIONS.md)"
-  - "[Contributing](./docs/reference/CONTRIBUTING.md)"
+  - "[Contributing](./AGENTS.md)"
 tags: [guide/readme, notes/project, guide/setup, guide/cli, guide/database, analysis/architecture, analysis/performance, analysis/testing, guide/etl, notes/overview, benchmark/performance]
 ---
 # TSPLIB95 ETL Converter
 
-![Tests](https://img.shields.io/badge/tests-134%2F134%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-425%2F425%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-63%25-yellow)
 ![python](https://img.shields.io/badge/python-3.12%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -44,7 +44,7 @@ Transforms academic routing problem benchmarks (TSP, VRP, ATSP, HCP, SOP) from t
 - ✅ **Change detection**: Only process modified files
 - ✅ **Hybrid storage**: Coordinates + distance matrices
 - ✅ **Dual output**: DuckDB + JSON + Parquet
-- ✅ **287/287 tests passing** with 63% coverage (coverage not re-measured on 2026-10-20)
+- ✅ **425/425 tests passing** with 63% coverage (coverage not re-measured on 2026-10-20)
 
 ## 📦 Installation
 
@@ -55,9 +55,6 @@ cd Routing_data
 
 # Install dependencies (using uv - recommended)
 uv sync
-
-# Or with pip
-pip install -r requirements.txt
 ```
 
 **Requirements**: python 3.12+, DuckDB, pandas
@@ -215,7 +212,7 @@ Phase 1: PARSE                Phase 2: TRANSFORM            Phase 3: LOAD
 ## 🧪 Testing
 
 ```bash
-# Run all tests (287 tests)
+# Run all tests (425 passed, 1 xfailed)
 uv run pytest tests/ -v
 
 # Run with coverage report
@@ -225,16 +222,16 @@ uv run pytest tests/ --cov=src --cov-report=term-missing
 uv run pytest tests/ -q
 
 # Run one package (layout mirrors src; see tests/README.md)
-uv run pytest tests/tsplib_parser/ -v   # Parser package (146 tests)
-uv run pytest tests/converter/ -v       # Converter package (131 tests)
+uv run pytest tests/tsplib_parser/ -v   # Parser package (171 tests)
+uv run pytest tests/converter/ -v       # Converter package (244 passed, 1 xfailed)
 uv run pytest tests/e2e/ -v             # Cross-package chain (1 test)
 uv run pytest tests/test_unit_conftest.py -v  # Test infrastructure (9 tests)
 ```
 
 **Test Suite Overview**:
 
-- **Total Tests**: 287 ✅
-- **Pass Rate**: 100% (287/287)
+- **Total Tests**: 425 ✅
+- **Pass Rate**: 100% (425 passed, 1 expected failure)
 - **Code Coverage**: last measured at 63% overall (core modules 80-100%); not re-measured during the 2026-10-20 test reorganization.
 
 **Core Module Coverage**:
@@ -262,7 +259,7 @@ uv run pytest tests/test_unit_conftest.py -v  # Test infrastructure (9 tests)
 
 ### Development
 
-- [Contributing](docs/reference/CONTRIBUTING.md) - Contributing guidelines
+- [Contributing](AGENTS.md) - Contributing guidelines
 - [Testing Summary](docs/development/TESTING_IMPROVEMENTS.md) - Test documentation
 - [Test Commands](docs/development/TESTING_IMPROVEMENTS.md) - Quick reference
 
@@ -366,7 +363,7 @@ ORDER BY count DESC;
 
 ## 🤝 Contributing
 
-Contributions welcome! See [Contributing](docs/reference/CONTRIBUTING.md) for guidelines.
+Contributions welcome! See [AGENTS.md](AGENTS.md) for guidelines.
 
 **Key conventions**:
 

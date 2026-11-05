@@ -55,9 +55,7 @@ def _tsp_payload(
     "depots": [],
     "adjacency": None,
     "fixed_edges": None,
-    "edge_weight_data": (
-      {"matrix": matrix, "matrix_format": "FULL_MATRIX", "is_symmetric": True} if matrix else None
-    ),
+    "edge_weight_data": ({"matrix": matrix, "matrix_format": "FULL_MATRIX", "is_symmetric": True} if matrix else None),
     "file_path": None,
     "checksum": None,
   }
@@ -106,9 +104,7 @@ def test_coordinate_dimension_mismatch_fails_validation(cli_runner: CliRunner, t
   EXPECTED: exit code 1 and the coordinate check named in the output.
   """
   db_path: Path = tmp_path / "bad_coords.duckdb"
-  DatabaseManager(str(db_path)).insert_problem(
-    _tsp_payload("bad_coords", dimension=3, coords=[[0.0, 0.0], [1.0, 1.0]])
-  )
+  DatabaseManager(str(db_path)).insert_problem(_tsp_payload("bad_coords", dimension=3, coords=[[0.0, 0.0], [1.0, 1.0]]))
 
   result = cli_runner.invoke(cli, ["validate", "--database", str(db_path)])
 

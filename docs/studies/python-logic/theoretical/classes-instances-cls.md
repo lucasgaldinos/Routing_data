@@ -111,7 +111,7 @@ Inside the method, `cls.fields_by_keyword` reads the class registry and `cls()` 
 >
 > 1. `StandardProblem.parse` — attribute access. Returns a bound method (function + `cls`). No instance is created here.
 > 2. `(text)` — the call. The method body starts running, still with no instance.
-> 3. `problem = cls()` inside the body ([`models.py:851`](../../../../src/tsplib_parser/models.py#L851)) — only now is the instance created.
+> 3. `problem = cls()` inside the body ([`models.py:137`](../../../../src/tsplib_parser/models.py#L137)) — only now is the instance created.
 > 4. The method returns it, and only then does the assignment bind the name `problem_instance`.
 >
 > So the line does not build an instance "before calling `parse`": the left side is only a lookup of the method, and the name binds after the call has finished and returned.
@@ -313,33 +313,33 @@ The order inside one call, with the source locations:
 
 ```text
 StandardProblem.parse(text)
-  1. problem = cls()                       models.py:851   ← the object exists, empty
-  2. acc = _SectionAccumulator(...)        models.py:853
-  3. line loop: setattr(problem, field.name, parsed)       ← it is filled here
-  4. errors raised, if any, at the end of the loop
+  1. problem = cls()                            models.py:137   ← the object exists, empty
+  2. raw_headers, raw_sections = _split_tsplib_text(...)   models.py:139
+  3. header loop: setattr(problem, field.name, parsed)     models.py:147   ← headers filled here
+  4. section loop: setattr(problem, ...)                   models.py:159   ← bodies filled here
+  5. errors raised, if any, after both loops               models.py:164
 ```
 
-So the object is created *by* `parse`, first line, and filled afterwards. `parse_file` ([`parser.py:82`](../../../../src/tsplib_parser/parser.py#L82)) wraps that with five more steps that also run before you see anything:
+So the object is created *by* `parse`, first line, and filled afterwards. `parse_file` ([`parser.py:105`](../../../../src/tsplib_parser/parser.py#L105)) wraps that with a few more steps that also run before you see anything:
 
 ```text
 FormatParser.parse_file(path)
-  1. _preprocess_vrp_file(path)        → may write a temp file, strips VRP extensions
-  2. open(...).read()                  → text
-  3. StandardProblem.parse(text, ...)  → the four steps above
-  4. temp file removed, if one was written
-  5. validate_problem(problem)         → may raise
-  6. _extract_*                        → plain dict result
+  1. read the file once                 → text in memory
+  2. _preprocess_vrp_file(...)          → in-memory text, strips VRP extensions (no temp file)
+  3. cls_to_use.parse(text)             → the steps above
+  4. validate_problem(problem)          → may raise
+  5. _extract_*                         → plain dict result
 ```
 
 > [!warning] Problem that must be solved in this parser. This was done as a way to make a quick MVP, not the intended design.
 > VRP extensions should not be st
 > Why strip VRP extensions first? `StandardProblem.parse` implements the TSPLIB95 core, and that is deliberate: it knows nothing about VRP extras such as `TIME_WINDOW_SECTION`, `PICKUP_SECTION` or `SERVICE_TIME_SECTION`.
-> Left in the text, those section headers would open an accumulator whose body lines match no field — the data would be silently swallowed, or worse, misread as something else.
-> `_preprocess_vrp_file` removes those sections into a temporary file; the most important ones are also recorded — `TIME_WINDOW_SECTION` and `PICKUP_SECTION` set flags in `self._additional_vrp_fields`, parser-instance state that the metadata extractors read later.
+> Left in the text, those section headers would reach a section lookup that has no registered field for them — the data would be reported as unsupported, or worse, swallowed by the wrong field.
+> `_preprocess_vrp_file` removes those sections from the text **in memory** and returns the stripped string; the most important ones are also recorded — `TIME_WINDOW_SECTION` and `PICKUP_SECTION` set flags in `self._additional_vrp_fields`, parser-instance state that the metadata extractors read later.
 > The remaining extended sections, such as `SERVICE_TIME_SECTION`, are dropped without a flag — `StandardProblem` has no field to hold them. The core parse therefore sees clean TSPLIB text, while the VRP information still reaches the output wherever a field for it exists.
 > The full layer split is covered in [parser-pipeline.md](../../../src/tsplib_parser/parser-pipeline.md).
 
-All of it happens before the caller regains control, which is why a returned problem is never half-built. What is *not* true is that the object predates the call: it is a local variable born at line 851 and returned at the end. The full per-call flow, including a recorded stack trace of a field being parsed, is in [factory-pattern.md](./../practical/factory-pattern.md).
+All of it happens before the caller regains control, which is why a returned problem is never half-built. What is *not* true is that the object predates the call: it is a local variable born at line 137 and returned at the end. The full per-call flow, including a recorded stack trace of a field being parsed, is in [factory-pattern.md](./../practical/factory-pattern.md).
 
 ### Why not a StandardProblem subclass instead
 
@@ -364,9 +364,9 @@ The same module uses both, for their correct purposes:
 
 | Line | Owner | First argument |
 | --- | --- | --- |
-| [`models.py:121`](../../../../src/tsplib_parser/models.py#L121), [`420`](../../../../src/tsplib_parser/models.py#L420), [`441`](../../../../src/tsplib_parser/models.py#L441) | transformer (121), field (420, 441) | `self`, the transformer or field object |
-| [`models.py:673`](../../../../src/tsplib_parser/models.py#L673) | `Problem.parse`, the lenient base | `cls` |
-| [`models.py:832`](../../../../src/tsplib_parser/models.py#L832) | `StandardProblem.parse`, the strict override | `cls` |
+| [`fields.py:58`](../../../../src/tsplib_parser/fields.py#L58), [`fields.py:79`](../../../../src/tsplib_parser/fields.py#L79) | `Field.parse` and `TransformerField.parse` | `self`, the field object |
+| [`fields.py:75`](../../../../src/tsplib_parser/fields.py#L75) | `TransformerField.build_transformer` | `cls`, the field class |
+| [`models.py:121`](../../../../src/tsplib_parser/models.py#L121) | `StandardProblem.parse` | `cls` |
 
 **`Field.parse(self, text)` is an instance method because the field object was created at class-definition time and already exists. `StandardProblem.parse(cls, text)` is a classmethod because no problem exists yet.**
 

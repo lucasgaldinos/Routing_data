@@ -15,7 +15,19 @@ Applies to every task in this repository. Numbered `0` so the existing `§1`–`
 3. **Announce skills.** The first line of a task names the skills loaded (or `skills: none`) and the step each one covers. If no skill matches, say so instead of proceeding silently.
 4. **Executable anchors.** An explanation is incomplete without a runnable snippet, the exact `path:line`, and the expected output. A concept explained a third time becomes a knowledge-base note, not another chat answer.
 5. **Verification that can fail.** A fix ships with the observation that fails without it — §3.11 defines the evidence standard.
-6. **Session handoff.** At the end of a work item, write the `## Handoff` block into the active plan file: state, last verified observation, next item, open decisions, files to read first. Bridge sessions with the handoff, never with the transcript.
+6. **Session handoff.** At the end of every work item, write the `## Handoff` block below into the active plan file. Bridge sessions with the handoff, never with the transcript.
+
+   ```markdown
+   ## Handoff
+
+   - **State**: done | in progress | blocked
+   - **Last verified observation**: `<command>` -> `<output line>` (YYYY-MM-DD)
+   - **Next item**: task id + one-line action
+   - **Open decisions**: question | options | owner
+   - **Read first**: `path:line`, `path:line` (max 5 entries)
+   ```
+
+   Write it at every boundary where the next session would otherwise start by guessing: end of a task, end of a batch, before a compaction, before delegating to a subagent. `State: done` is only legal when the last verified observation is an observation that fails without the change.
 7. **File edits use built-in tools.** Create and edit files with `create_file`, `replace_string_in_file`, or `multi_replace_string_in_file` so every change is reviewable as a diff. The terminal is for exploration and commands, never for writing file contents.
 
 ---
@@ -86,7 +98,7 @@ Key modules:
 
 ## 4. Testing Discipline
 
-**Source of truth:** [`tests/README.md`](tests/README.md) (layout, `test_<level>_<module>[_<concern>].py` naming, filename-derived level markers, orthogonal tags, parser file boundaries, command map) and [`.github/instructions/testing_instructions.instructions.md`](.github/instructions/testing_instructions.instructions.md). Read them before adding, moving, or retagging a test. Repository conventions override generic skills (e.g. never hand-write `unit`/`integration`/`e2e` markers; no parallel `tests/unit/` tree).
+**Source of truth:** [`tests/README.md`](tests/README.md) (layout, `test_<level>_<module>[_<concern>].py` naming, filename-derived level markers, orthogonal tags, parser file boundaries, command map) and [`testing.instructions.md`](.agents/rules/testing.instructions.md). Read them before adding, moving, or retagging a test. Repository conventions override generic skills (e.g. never hand-write `unit`/`integration`/`e2e` markers; no parallel `tests/unit/` tree).
 
 Agent-specific rules:
 
@@ -155,7 +167,7 @@ Before considering any refactoring phase complete, evaluate the changeset across
 
 ## 7. Documentation Protocol
 
-The full rule set is [`documentation.instructions.md`](.github/instructions/documentation.instructions.md). Non-negotiables:
+The full rule set is [`documentation.instructions.md`](.agents/rules/documentation.instructions.md). Non-negotiables:
 
 * **Authority**: the [TSPLIB95 spec](docs/reference/tsplib95_format.md) governs keywords, sections, field types and distances. LKH-3 is an inspiration, never an authority, and project vocabulary is never labelled "LKH-3".
 * **Links**: inline only, and every `§x.y` reference is a link to its heading anchor. A bare `§` or a reference-style label is a review blocker.

@@ -12,9 +12,10 @@ _Active implementation plan - routing_data parser hardening (tsplib_parser) + ET
 - [x] Batch 1 - `models.py` micro-cleanups (1.1 - 1.6 completed)
 - [x] Batch 2 - `StandardProblem.parse` structural simplification & decomposition into `tokenization.py`, `fields.py`, `transformers.py`
 - [x] Batch 3 - ETL failure visibility (converter / CLI) — B1/B3 fixed 2026-11-03
-- [x] Batch 4 - naming collision (`DataTransformer` -> `ProblemNormalizer`) — done 2026-11-03 (alias kept)
+- [ ] Batch 4 - naming collision (`DataTransformer` -> `ProblemNormalizer`) — re-opened 2026-11-04 to remove `DataTransformer` alias and migrate all 20 test files + 6 doc files
 - [x] Batch 5 - docs: `src/tsplib_parser/README.md` with mermaid diagrams, updated TODOs, test layout conventions
 - [x] Batch 6 - parser payload typing (`ParseResult` / `ProblemData` / `Metadata`) + Cordeau payload bridge (2026-10-23)
+- [ ] Batch 7 - post-`v0.2.0` deep review fixes: `GEO` degree truncation, corpus-independence (`C1`–`C3`), `inspect_parse_result.py` output, `v0.2.0` spec/architecture/coverage (`81%`) docs, and `config.schema.json` + `config.full.example.yaml`
 
 ## Verification baseline (re-measured 2026-11-03 for `v0.2.0`)
 
@@ -93,21 +94,70 @@ state at the time of writing; a change may not raise any of them.
 
 ### Batch 4 - naming collision (option A locked, D6)
 
-- [x] **Task 4.1 - Rename converter class `DataTransformer` -> `ProblemNormalizer` (class only)**
+- [ ] **Task 4.1 - Rename converter class `DataTransformer` -> `ProblemNormalizer` (class only, no legacy alias)**
 
-  + **What:** Rename the class in `src/converter/core/transformer.py`; update all references and
-    imports; keep the module filename.
-  + **Why:** `models.Transformer` (format parser) vs `converter ... transformer.py::DataTransformer`
-    (ETL reshape) name collision is confusing; class-only rename is the smallest ripple.
-  + **Where:** `src/converter/core/transformer.py` + referencing modules/tests.
+  + **What:** Rename the class in `src/converter/core/transformer.py`, remove the `DataTransformer = ProblemNormalizer` release-cycle alias (`transformer.py:511`), and update all remaining references and imports across `tests/` (20 sites) and `docs/` (6 sites); keep the module filename. Also remove the duplicated `_nint` helper in `transformer.py:45` and import `nint` from `converter.utils.cost`.
+  + **Why:** `models.Transformer` (format parser) vs `converter ... transformer.py::DataTransformer` (ETL reshape) name collision is confusing, and keeping a backwards-compatible alias for a single-user repo left `tests/` and `docs/` importing the retired name.
+  + **Where:** `src/converter/core/transformer.py` + referencing modules, `tests/converter/**`, `tests/tsplib_parser/test_integration_cordeau.py`, `tests/e2e/test_e2e_pipeline.py`, `docs/**`.
   + **How much:** Low/Medium.
-  + **DoD:** Zero old-name references in `src/` and `tests/`; converter suite behaves as before
-    (excluding the 14 pre-existing v1 failures).
+  + **DoD:** Zero `DataTransformer` references in `src/`, `tests/`, and `docs/` (excluding historical register notes); `nint` imported from `converter.utils.cost`; converter suite green.
 
 ### Batch 5 - documentation — **COMPLETED**
 
 - [x] **Task 5.1 - Comment near `FileMeta`**
 - [x] **Task 5.2 - `src/tsplib_parser/README.md` with 3-layer architecture and mermaid diagrams**
+
+### Batch 7 - Post-`v0.2.0` Review Fixes, Corpus Independence (`C1`–`C3`), Spec/Coverage Docs & Config Schema
+
+- [ ] **Task 7.1 - Fix `GEO` degree truncation in `src/converter/utils/cost.py` (`_geographical`)**
+
+  + **What:** Change `deg = _nint(x)` to C-style truncation `deg = int(x)` in `_geographical` (`src/converter/utils/cost.py:80`) to match TSPLIB95 spec §2.4 (`deg = (int) x[i]`) and canonical `burma14` distances (`d(1,3) = 510`, not `560`).
+  + **Why:** Rounding the degree part shifts every `GEO` coordinate whose fractional part is `>= 0.50`, breaking canonical TSPLIB95 tour lengths and forcing `gpu_accelerated_clean` to keep a separate `compute_geographical` implementation.
+  + **Where:** `src/converter/utils/cost.py:75-95`, `tests/converter/test_unit_cost.py`, `tests/converter/test_unit_cost_exports.py`.
+  + **How much:** Low (~15 lines).
+  + **DoD:** `geographical` in `cost.py` matches `burma14` canonical distances (`d(1,3) == 510`); `pytest tests/converter/test_unit_cost*.py -q` passes.
+
+- [ ] **Task 7.2 - Enforce Corpus Independence Rules `C1`, `C2`, and `C3`**
+
+  + **What:**
+    1. `C3` (No config default pointing into `datasets_raw`): Remove `./datasets_raw/problems` defaults from `config.yaml:4`, `src/converter/config.py:15`, and `src/converter/cli/commands.py:348` (use `./datasets/problems` or require explicit `-i/--input-dir`), and update `docs/guides/USER_GUIDE.md:119`;
+    2. `C2` (No corpus directory shape encoded in library/CLI code): Remove `parent_dir = problem_path.parent.parent; tour_dir = parent_dir / "tour"` in `src/converter/core/transformer.py:298-312` and `"all_problems" in str(input_path)` / `cvrplib` sibling traversal in `src/converter/cli/commands.py:103-113`;
+    3. `C1` (No `datasets_raw/**` path in `src/tsplib_parser`): Replace `"datasets_raw/umalaga/mdvrp/C-mdvrp/p01"` in `src/tsplib_parser/cordeau/cordeau_parser.py:34` docstring with a generic path (`"path/to/p01"`), and fix `src/tsplib_parser/README.md:73-82,132`.
+  + **Why:** `.agents/rules/documentation.instructions.md` (`C1`–`C3`) and `AGENTS.md` §7 forbid coupling library/config code to the `datasets_raw/` directory tree.
+  + **Where:** `config.yaml`, `src/converter/config.py`, `src/converter/cli/commands.py`, `src/converter/core/transformer.py`, `src/tsplib_parser/cordeau/cordeau_parser.py`, `src/tsplib_parser/README.md`.
+  + **How much:** Medium (~60 lines).
+  + **DoD:** `grep -rn "datasets_raw" src/ config.yaml` returns 0 matches; `pytest tests -q` passes.
+
+- [ ] **Task 7.3 - Improve `examples/inspect_parse_result.py` Output**
+
+  + **What:** Rewrite `describe()` and `inspect()` in `examples/inspect_parse_result.py` so it displays actual parsed values instead of shallow container types:
+    - Print scalar `problem_data` fields (`name`, `type`, `dimension`, `capacity`, `edge_weight_type`, `edge_weight_format`) and `Matrix` summary (`class`, `size`) when `edge_weights` is present (`gr17.tsp`);
+    - Print `metadata` highlights (`is_symmetric`, `weight_source`, `has_coordinates`, `has_demands`, `has_tours`);
+    - Print array lengths plus a preview of the first element/row for `coords`, `demands`, `depots`, `edges`, and `tours` (with a clear label when empty because the problem is `EXPLICIT` or a `.tour` file).
+  + **Why:** Currently `inspect_parse_result.py` prints `dict keys=[...]` and `coords: list len=0 first=empty`, hiding the actual parsed content.
+  + **Where:** `examples/inspect_parse_result.py`.
+  + **How much:** Low (~45 lines).
+  + **DoD:** Running `uv run python examples/inspect_parse_result.py` displays human-readable problem metadata, symmetry/matrix info, and sample array entries for all 4 sample files; `ruff` and `mypy examples` pass.
+
+- [ ] **Task 7.4 - Document `v0.2.0` Storage/Validation Rules in `tsplib_format_extended_spec.md` & `ARCHITECTURE.md` and Update Coverage (`81%`)**
+
+  + **What:**
+    1. In `docs/reference/tsplib_format_extended_spec.md`, document: (a) value-based symmetry derivation (`check_symmetry` over $d(i, j) = d(j, i)$ for `FULL_MATRIX` and all `EXPLICIT` formats, `M7`), (b) TSPLIB95 `nint(x) = floor(x + 0.5)` rounding for `EXPLICIT` matrices stored in `edge_weight_matrices.matrix` (`INTEGER[][]`, `M3`), and (c) the storage output conventions (`<name>.<type>.json` in `M2` and `ALLOWED_TABLES` in `m17`);
+    2. In `docs/ARCHITECTURE.md`, update stale line numbers and symbol names (`ProblemNormalizer`, `NormalizedProblemData`, 9-key `ParseResult` without `nodes`, 12-key `metadata`, 9-table schema v2 including `solutions`, and `ParquetWriter.export_from_database`);
+    3. Replace remaining v1 `nodes` table references in `README.md`, `docs/DATABASE_CONNECTION_GUIDE.md`, `docs/diagrams/database-schema.md`, and `docs/guides/PARQUET_EXPORT.md`, and fix unlinked `§x.y` references (`L2`);
+    4. Update test coverage from `63%` to the measured **`81%`** (`3,427` statements, `654` missed; `matrix.py` at `98%`) in `README.md:25,47` and `docs/reference/ARCHITECTURE_DECISIONS.md:183`.
+  + **Why:** Keeps the authoritative specification and architecture docs aligned with the `v0.2.0` code and measured test coverage.
+  + **Where:** `docs/reference/tsplib_format_extended_spec.md`, `docs/ARCHITECTURE.md`, `docs/reference/ARCHITECTURE_DECISIONS.md`, `README.md`, `docs/DATABASE_CONNECTION_GUIDE.md`, `docs/diagrams/database-schema.md`, `docs/guides/PARQUET_EXPORT.md`.
+  + **How much:** Medium.
+  + **DoD:** Zero references to `DataTransformer`, `export_database_to_parquet`, `_expand_vrp_matrix`, or the dropped `nodes` table in active docs; coverage badge and text report `81%`.
+
+- [ ] **Task 7.5 - Add JSON Schema (`docs/schemas/config.schema.json`) and Full Example Config (`config.full.example.yaml`)**
+
+  + **What:** Create `docs/schemas/config.schema.json` describing all `ConverterConfig` fields, link it at the top of `config.yaml` via `# yaml-language-server: $schema=./docs/schemas/config.schema.json`, and create `config.full.example.yaml` with commented documentation of every available parameter (`input_path`, `file_patterns`, `output_dir`, `json_output_path`, `database_path`, `output_formats`, `batch_size`, `max_workers`, `memory_limit_mb`, `pretty_json`, `parquet_compression`, `force_reprocess`, `log_level`, `log_file`).
+  + **Why:** `config.yaml` currently shows only a minimal subset of options without schema validation or parameter documentation.
+  + **Where:** `docs/schemas/config.schema.json` _(new)_, `config.full.example.yaml` _(new)_, `config.yaml`.
+  + **How much:** Low/Medium (~120 lines).
+  + **DoD:** `config.yaml` and `config.full.example.yaml` validate against `docs/schemas/config.schema.json` and load cleanly via `load_config()`.
 
 ## Verification commands
 

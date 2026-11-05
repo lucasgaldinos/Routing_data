@@ -140,7 +140,7 @@ covered by `test_unit_transformer.py` until the deletion in A4.
 The 1 `xfailed` test is deliberate: it pins a defect that is registered in
 `TODO.md` / `src/converter/TODO.md` and marked `strict=True`, so the day the
 defect is fixed the suite turns **red** until the test is updated. The rationale
-for every rule below is in `tmp/analysis-test-suite-organization.md`.
+for every rule below is in [testing.instructions.md](../.agents/rules/testing.instructions.md).
 
 ## Filename rule
 

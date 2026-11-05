@@ -44,7 +44,9 @@ class SimpleConverter:
         file_path: Path to the TSPLIB file
 
     Returns:
-        Dictionary containing problem data, nodes, tours, and metadata
+        Normalized schema-v2 payload: ``problem_data``, the array columns
+        ``coords``/``display_coords``/``demands``/``depots``, ``edges``,
+        ``edge_weight_matrix``, ``tours`` and ``metadata``.
     """
     # Parse the file
     parsed_data = self.parser.parse_file(file_path)
@@ -224,12 +226,13 @@ def parse_file(file_path: str) -> NormalizedProblemData:
       file_path: Path to the TSPLIB file
 
   Returns:
-      Dictionary containing problem data, nodes, tours, and metadata
+      Normalized schema-v2 payload (``problem_data``, array columns, ``edges``,
+      ``edge_weight_matrix``, ``tours``, ``metadata``)
 
   Example:
       data = parse_file("gr17.tsp")
       print(f"Problem: {data['problem_data']['name']}")
-      print(f"Nodes: {len(data['nodes'])}")
+      print(f"Coords: {len(data['coords'])}")
   """
   return _default_converter.parse_file(file_path)
 

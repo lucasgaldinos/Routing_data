@@ -97,11 +97,11 @@ Both are valid python, and they differ in when the field objects exist and who c
 The parser reads the schema from the class, because the class is where the schema lives:
 
 ```python
-problem = cls()                                                     # models.py:851, the write target
-acc = _SectionAccumulator(problem, cls.fields_by_keyword, errors)    # models.py:853, the schema
+problem = cls()                                        # models.py:137, the write target
+schema = cls.fields_by_keyword                         # models.py:142, the schema
 ```
 
-The argument is `cls.fields_by_keyword`, never `problem.fields_by_keyword`. That is not because reading through an instance is wrong — `p.fields_by_keyword` resolves upward to the class and works fine, as [factory-pattern.md](./factory-pattern.md) shows. It is because the instance style cannot provide a map that exists at class-creation time. `FileMeta` collects class-body attributes only ([`models.py:607-621`](../../../../src/tsplib_parser/models.py#L607-L621)); with fields assigned in `__init__`, the class body holds none, so the metaclass would build an empty index and the very first lookup would find nothing.
+The argument is `cls.fields_by_keyword`, never `problem.fields_by_keyword`. That is not because reading through an instance is wrong — `p.fields_by_keyword` resolves upward to the class and works fine, as [factory-pattern.md](./factory-pattern.md) shows. It is because the instance style cannot provide a map that exists at class-creation time. `FileMeta` collects class-body attributes only ([`models.py:33`](../../../../src/tsplib_parser/models.py#L33)); with fields assigned in `__init__`, the class body holds none, so the metaclass would build an empty index and the very first lookup would find nothing.
 
 Rebuilding the index from a live object is possible in principle — construct a throwaway problem and scan its `vars()` for `Field` values — but every instance would then pay for the rebuild, and each instance would also pay for 18 field objects and 17 transformers (`StandardProblem` declares 18 fields; `ToursField` is a plain `Field`, the other 17 are `TransformerField` subclasses). The class-body style creates each of those objects exactly once.
 
@@ -111,14 +111,14 @@ The second cost of the instance style is that it fails without a sound. `__set_n
 
 ```python
 if field.name:
-    setattr(problem, field.name, parsed)      # models.py:872
+    setattr(problem, field.name, parsed)      # models.py:147
 ```
 
 A problem parsed under that design would come back empty rather than raising — the same silent-default class of bug discussed in [factory-pattern.md](./factory-pattern.md).
 
 ## The rule and its two footguns
 
-The whole distinction fits in one line, and the parser shows both halves side by side ([`models.py:868-872`](../../../../src/tsplib_parser/models.py#L868-L872)):
+The whole distinction fits in one line, and the parser shows both halves side by side ([`models.py:142-147`](../../../../src/tsplib_parser/models.py#L142-L147)):
 
 ```python
 field = cls.fields_by_keyword[keyword]   # schema: class attribute, read-only

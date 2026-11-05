@@ -293,7 +293,7 @@ Nothing in `FileMeta` runs during parsing. It instantiates a class, not an objec
 
 ## The two registries
 
-`registry` is not an attribute this package defines: no such name is assigned anywhere under `src/**/*.py`, and the only occurrences of the string are the pedagogical example and an unrelated comment in the converter. It is an arbitrary name for "the map the metaclass hangs on the class". The real equivalent is the pair of attributes assigned in [`FileMeta.__new__`](../../../../src/tsplib_parser/models.py#L618-L619):
+`registry` is not an attribute this package defines: no such name is assigned anywhere under `src/**/*.py`, and the only occurrences of the string are the pedagogical example and an unrelated comment in the converter. It is an arbitrary name for "the map the metaclass hangs on the class". The real equivalent is the pair of attributes assigned in [`FileMeta.__new__`](../../../../src/tsplib_parser/models.py):
 
 ```python
 cls.fields_by_name = fields
@@ -304,8 +304,8 @@ Both maps hold the same 18 field objects, keyed differently:
 
 | Map | Keyed by | Example key | Read by |
 | --- | --- | --- | --- |
-| `fields_by_name` | python attribute name | `dimension` | the default lookup in `__getattribute__`, and `as_dict` when enumerating the schema |
-| `fields_by_keyword` | file keyword | `DIMENSION` | keyword lines in `parse`, and section headers in `_SectionAccumulator.close` |
+| `fields_by_name` | python attribute name | `dimension` | the default lookup in `Field.__get__`, and `as_dict` when enumerating the schema |
+| `fields_by_keyword` | file keyword | `DIMENSION` | keyword lines in `parse` ([`models.py:142`](../../../../src/tsplib_parser/models.py)) and section headers in its section loop ([`models.py:152`](../../../../src/tsplib_parser/models.py)) |
 
 Each class gets its own pair, which is why `Problem`'s map is empty while `StandardProblem`'s holds 18 entries — the same point demonstrated with the MRO walk in [metaclasses-new-mro.md](./metaclasses-new-mro.md). The upstream package ships four maps rather than two; which two it does not carry over is listed in [models.md](../../../src/tsplib_parser/models.md). How the arguments that trigger this assignment arrive is covered in [metaclasses-new-mro.md](./metaclasses-new-mro.md).
 
