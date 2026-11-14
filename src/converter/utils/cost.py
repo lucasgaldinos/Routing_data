@@ -75,8 +75,15 @@ def _maximum_3d(a: Sequence[float], b: Sequence[float]) -> int:
 
 
 def _to_radians_geo(coord_val: float) -> float:
-  """Convert a TSPLIB95 DDD.MM geographic coordinate to radians."""
-  deg: int = _nint(coord_val)
+  """Convert a TSPLIB95 DDD.MM geographic coordinate to radians.
+
+  TSPLIB95's reference ``dist.c`` truncates the degree part
+  (``deg = (int) x[i]``) and reads the fractional remainder as minutes, so
+  ``52.31`` means 52° 18.6'. Rounding the degree instead moves every
+  coordinate whose minutes are ``>= 30`` to the next degree, which changes
+  canonical lengths (``burma14`` ``d(1, 3)`` reads 560 instead of 510).
+  """
+  deg: int = int(coord_val)
   minutes: float = coord_val - deg
   return 3.141592 * (deg + 5.0 * minutes / 3.0) / 180.0
 

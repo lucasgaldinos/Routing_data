@@ -110,6 +110,43 @@ class TestXrayPairDistance:
     assert _closed_pair("XRAY2", [0.0, 0.0, 0.0], [0.0, -1.0, 0.0]) == 134.0
 
 
+class TestGeographicalDistance:
+  """GEO degrees are truncated, not rounded (TSPLIB95 ``dist.c``).
+
+  WHY: the reference C implementation computes ``deg = (int) x[i]`` and reads
+  the fractional remainder as minutes, so ``DDD.MM`` is a base-60 fractional
+  part, not a decimal one. Rounding the degree instead shifts every coordinate
+  whose minutes are ``>= 30`` to the next degree, inflating each affected edge
+  by a whole distance unit and propagating the error through every accumulated
+  tour cost.
+
+  EXPECTED: the two pairs below pin both sides of the difference — one is
+  unchanged by the rounding, the other is not.
+  """
+
+  def test_geographical_horizontal_pair(self) -> None:
+    """WHAT: two burma14 nodes on the same parallel, 1.66° of longitude apart.
+
+    WHY: the minutes of both longitudes are below 30 (``.10`` and ``.44``), so
+    truncation and rounding agree here. This case guards against a "fix" that
+    over-corrects and breaks the coordinates where both rules coincide.
+
+    EXPECTED: 153, the value ``dist.c`` produces.
+    """
+    assert cost_module.geographical((16.47, 96.10), (16.47, 94.44)) == 153
+
+  def test_geographical_truncates_the_degree_part(self) -> None:
+    """WHAT: burma14 ``d(1, 3)``, whose second endpoint has 54 minutes.
+
+    WHY: this is the regression lock for the rounding defect. Truncating
+    ``92.54`` to 92° 32.4' yields 510; rounding it to 93° yields 560, which is
+    what the buggy implementation returned.
+
+    EXPECTED: 510.
+    """
+    assert cost_module.geographical((16.47, 96.10), (20.09, 92.54)) == 510
+
+
 class TestXrayCanonicalTour:
   """TSPLIB95 §2.8 publishes 15 429 219 (XRAY1) and 12 943 294 (XRAY2) for the
   canonical tour ``1, 2, …, n`` of ``xray14012``.

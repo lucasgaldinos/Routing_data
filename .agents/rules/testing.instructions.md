@@ -44,6 +44,7 @@ assert problem_data["dimension"] == 52
 
 - Mirror the source package: `tests/tsplib_parser/`, `tests/converter/`, `tests/e2e/`.
 - One responsibility per file: one source module or one pipeline stage. Split when a file starts covering a second module, a second failure mode, or a second stage.
+- **File size bounds**: Target 250–400 lines per test file. Any test file exceeding 400 lines must be split by concern or submodule.
 - Name files `test_<level>_<module>[_<concern>].py`, where `<level>` is `unit`, `integration`, `e2e` or `performance`.
 - The filename declares the level. Never add a hand-written level marker; never create a parallel `tests/unit/` tree.
 - One concern per file; cross-package flows belong in `tests/e2e/`.
@@ -55,6 +56,8 @@ assert problem_data["dimension"] == 52
 - No hardcoded repository paths; use `pathlib.Path` and fixtures.
 - No single-sample coverage for a multi-case function; parametrize.
 - No wall-clock assertions.
+- **No SQL `SAVEPOINT` in DuckDB tests or pipelines**: DuckDB 1.5.6 lacks `SAVEPOINT` support. A single failed statement aborts the enclosing transaction block. Always validate data pre-flight or execute per-item transactions with `ON CONFLICT DO UPDATE`.
+- **No circular mocks or self-referential assertions**: Never assert parser outputs against the parser's own internal intermediate representations. Tests must assert against independent, analytical truth or official TSPLIB95 / CVRPLIB specification tables.
 
 ## 6. Exceptions
 

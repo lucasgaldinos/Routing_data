@@ -10,10 +10,10 @@ These instructions define the mandatory development workflow, testing policies, 
 
 Applies to every task in this repository. Numbered `0` so the existing `§1`–`§7` cross-references stay valid.
 
-1. **Plan before writes.** A change touching more than one file starts with a numbered plan: what, why in business terms, the observation that fails today, and the blast radius. No file is written until the plan is approved. Approval of the plan is not approval to batch every item. Extends §3.1 to every multi-file change, not only architectural ones.
-2. **Bound the reads.** `grep_search` before `read_file`; read line ranges, not whole files; no unprompted whole-file read of files over ~400 lines, binaries, PDFs, or spilled `chat-session-resources/*.txt` tool output. Every read serves the current item.
+1. **Plan before writes.** A change touching more than one file starts with a numbered plan: what, why in business terms, the observation that fails today, the blast radius, and active negative constraints. No file is written until the plan is approved. Approval of the plan is not approval to batch every item. Extends §3.1 to every multi-file change, not only architectural ones.
+2. **Bound the reads.** `grep_search` before `read_file`; read line ranges, not whole files; no unprompted whole-file read of files over ~400 lines, binaries, PDFs, or spilled `chat-session-resources/*.txt` tool output (>12 KB boundary). Subagents must return focused findings < 4,500 characters to keep outputs inline in chat without filesystem spilling. Every read serves the current item.
 3. **Announce skills.** The first line of a task names the skills loaded (or `skills: none`) and the step each one covers. If no skill matches, say so instead of proceeding silently.
-4. **Executable anchors.** An explanation is incomplete without a runnable snippet, the exact `path:line`, and the expected output. A concept explained a third time becomes a knowledge-base note, not another chat answer.
+4. **Executable anchors.** An explanation is incomplete without a runnable snippet, the exact `path:line`, and the expected output. A concept explained a third time becomes a knowledge-base note, not another chat answer. Complex or mathematical explanations must include an intuitive mental model, a domain WHY comment, and KaTeX notation with citations.
 5. **Verification that can fail.** A fix ships with the observation that fails without it — §3.11 defines the evidence standard.
 6. **Session handoff.** At the end of every work item, write the `## Handoff` block below into the active plan file. Bridge sessions with the handoff, never with the transcript.
 
@@ -28,7 +28,10 @@ Applies to every task in this repository. Numbered `0` so the existing `§1`–`
    ```
 
    Write it at every boundary where the next session would otherwise start by guessing: end of a task, end of a batch, before a compaction, before delegating to a subagent. `State: done` is only legal when the last verified observation is an observation that fails without the change.
-7. **File edits use built-in tools.** Create and edit files with `create_file`, `replace_string_in_file`, or `multi_replace_string_in_file` so every change is reviewable as a diff. The terminal is for exploration and commands, never for writing file contents.
+7. **File edits use built-in tools.** Create and edit files with `create_file`, `replace_string_in_file`, `edit_file`, or `write_file` so every change is reviewable as a diff. The terminal is for exploration and commands, never for writing file contents (`cat >`, `echo >>`).
+8. **Defect discovery invalidates completion immediately.** If a defect, broken invariant, or regression is discovered in code marked `[x]` done or completed in any plan or task list, the task MUST be unmarked back to `[ ]` immediately before investigating or fixing the defect.
+9. **Repository plan isolation.** Plan files and task lists are strictly local to each repository (`routing_data/TODO.md` vs `gpu_accelerated_clean/documents_tcc/plan/`). Never create, cross-reference, or track tasks across repositories in a single plan file.
+10. **Zero legacy aliases in single-developer repositories.** Deprecated functions, aliases, legacy parameter names, and duplicate wrappers are strictly forbidden. Rename callers directly across the codebase.
 
 ---
 
